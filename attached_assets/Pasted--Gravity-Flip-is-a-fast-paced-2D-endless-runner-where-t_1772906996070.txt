@@ -1,0 +1,576 @@
+**Gravity Flip** is a fast-paced 2D endless runner where the player controls a character running through a dangerous corridor filled with obstacles. The only control is **tapping the screen to flip gravity**, switching the character between the floor and ceiling.
+ 
+The objective is to **survive as long as possible** while the speed gradually increases and obstacles become more complex.
+ 
+The game is designed around:
+ 
+ 
+- **Easy to learn (1 tap control)**
+ 
+- **Hard to master**
+ 
+- **Short gameplay sessions**
+ 
+- **Frequent deaths**
+ 
+- **Highly addictive retry loop**
+ 
+
+ 
+This design creates strong player engagement and natural opportunities for **advertisement monetization when players die**.
+  
+# Core Gameplay
+ 
+## Player Control
+ 
+The player has only one action:
+ 
+**Tap the screen → Flip gravity**
+ 
+When gravity flips:
+ 
+ 
+- If the character is on the floor → it moves to the ceiling.
+ 
+- If the character is on the ceiling → it moves to the floor.
+ 
+
+ 
+The character continues running automatically at a constant forward speed.
+  
+## Game Objective
+ 
+The goal is to **survive for as long as possible** while navigating obstacles.
+ 
+The player's score increases based on **distance traveled**.
+ 
+Example scoring:
+ 
+ 
+- Every second survived = +1 score.
+ 
+
+  
+## Difficulty Curve
+ 
+The game gradually increases difficulty through:
+ 
+ 
+1. Increased running speed
+ 
+2. More frequent obstacles
+ 
+3. More complex obstacle patterns
+ 
+4. Narrower safe paths
+ 
+
+ 
+Example progression:
+ 
+  
+ 
+Time Survived
+ 
+Difficulty
+ 
+   
+ 
+0–10 seconds
+ 
+Basic spikes
+ 
+ 
+ 
+10–25 seconds
+ 
+Alternating spikes
+ 
+ 
+ 
+25–45 seconds
+ 
+Moving obstacles
+ 
+ 
+ 
+45–60 seconds
+ 
+Narrow tunnels
+ 
+ 
+ 
+60+ seconds
+ 
+Mixed patterns and faster speed
+ 
+  
+ 
+This progression ensures new players can learn the mechanic quickly while advanced players face increasing challenges.
+  
+# Player Game Flow
+ 
+## Game Session Flow
+ 
+ 
+1. Player opens the app
+ 
+2. Main menu appears
+ 
+3. Player taps **Play**
+ 
+4. Game starts immediately
+ 
+5. Player flips gravity to avoid obstacles
+ 
+6. Player dies when colliding with obstacle
+ 
+7. Death screen appears
+ 
+8. Player chooses: 
+ 
+  - Retry
+ 
+  - Watch ad to revive
+ 
+
+ 
+ 
+9. Game restarts
+ 
+
+ 
+This creates a short and addictive gameplay loop.
+  
+# Main Menu
+ 
+## Purpose
+ 
+The main menu is the player's entry point to the game and provides access to all features.
+ 
+## Layout
+ 
+Main menu contains:
+ 
+ 
+- Game logo/title
+ 
+- Play button
+ 
+- Skin selection button
+ 
+- Leaderboard button
+ 
+- Settings button
+ 
+
+ 
+### Play Button
+ 
+The largest button on screen.
+ 
+Selecting Play immediately begins a new run.
+  
+### Skins Button
+ 
+Opens the **character customization menu** where players can select unlocked skins.
+  
+### Leaderboard Button
+ 
+Shows high scores from:
+ 
+ 
+- The player
+ 
+- Global leaderboard
+ 
+
+  
+### Settings Button
+ 
+Opens a menu where players can adjust basic preferences.
+  
+# Gameplay Screen UI
+ 
+## Layout Elements
+ 
+During gameplay, the interface is intentionally minimal to avoid distractions.
+ 
+Displayed elements:
+ 
+### Score Counter
+ 
+Located at the **top center of the screen**.
+ 
+Shows the player's current score (distance survived).
+  
+### Pause Button
+ 
+Located at the **top corner**.
+ 
+Pausing the game opens the pause menu.
+  
+### Visual Feedback Effects
+ 
+To enhance gameplay experience:
+ 
+ 
+- Near-miss glow when narrowly avoiding spikes
+ 
+- Speed glow when difficulty increases
+ 
+- Screen shake during close calls
+ 
+
+ 
+These effects help create excitement and tension.
+  
+# Obstacles
+ 
+Obstacles are the primary challenge of the game.
+ 
+## Basic Obstacles
+ 
+### Floor Spikes
+ 
+Sharp spikes on the ground.
+ 
+Player must flip to the ceiling to avoid.
+  
+### Ceiling Spikes
+ 
+Spikes attached to the ceiling.
+ 
+Player must flip to the floor.
+  
+### Spike Walls
+ 
+Large walls of spikes requiring precise timing.
+  
+## Advanced Obstacles
+ 
+### Moving Spikes
+ 
+Spikes that move vertically between floor and ceiling.
+  
+### Rotating Blades
+ 
+Circular spinning hazards placed in the corridor.
+  
+### Laser Gates
+ 
+Laser beams that activate briefly and block the path.
+  
+### Narrow Corridors
+ 
+Small safe gaps requiring perfect timing.
+  
+# Death System
+ 
+A player dies when the character touches any obstacle.
+ 
+### Death Effects
+ 
+To create dramatic feedback:
+ 
+ 
+- Slow-motion collision
+ 
+- Bright impact flash
+ 
+- Short sound effect
+ 
+
+ 
+This makes deaths feel impactful and encourages retrying.
+  
+# Death Screen
+ 
+After death, the results screen appears.
+ 
+## Displayed Information
+ 
+ 
+- Final score
+ 
+- Best score
+ 
+- Unlock progress
+ 
+- Retry button
+ 
+- Revive option (watch ad)
+ 
+
+  
+## Revive System
+ 
+Players can choose to watch a **rewarded advertisement** to continue their run.
+ 
+Rules:
+ 
+ 
+- Revive places the player slightly before the death point.
+ 
+- Only **one revive allowed per run**.
+ 
+
+ 
+This encourages ad viewing while keeping gameplay fair.
+  
+# Character Skins
+ 
+The game includes unlockable skins to give players progression goals.
+ 
+## Example Skins
+ 
+ 
+- Default Runner
+ 
+- Robot
+ 
+- Ninja
+ 
+- Neon Cube
+ 
+- Ghost
+ 
+- Glitch Runner
+ 
+
+  
+## Unlock Methods
+ 
+Skins are unlocked by reaching score milestones.
+ 
+Example progression:
+ 
+  
+ 
+Score
+ 
+Reward
+ 
+   
+ 
+50
+ 
+Robot skin
+ 
+ 
+ 
+100
+ 
+Ninja skin
+ 
+ 
+ 
+200
+ 
+Neon Cube
+ 
+ 
+ 
+400
+ 
+Ghost
+ 
+ 
+ 
+600
+ 
+Legendary skin
+ 
+  
+ 
+This system motivates players to improve.
+  
+# Leaderboards
+ 
+The leaderboard system encourages competition.
+ 
+## Types
+ 
+### Personal Best
+ 
+Player’s highest score.
+  
+### Global Leaderboard
+ 
+Shows top scores from players worldwide.
+ 
+Displayed information:
+ 
+ 
+- Player name
+ 
+- Score
+ 
+- Ranking position
+ 
+
+ 
+This motivates players to compete for higher scores.
+  
+# Pause Menu
+ 
+The pause menu appears when the player taps the pause button.
+ 
+Options include:
+ 
+ 
+- Resume
+ 
+- Restart
+ 
+- Quit to Main Menu
+ 
+- Settings
+ 
+
+  
+# Settings Menu
+ 
+The settings menu allows players to adjust game preferences.
+ 
+Available options:
+ 
+ 
+- Music on/off
+ 
+- Sound effects on/off
+ 
+- Vibration on/off
+ 
+
+  
+# Audio Design
+ 
+Audio plays a major role in creating immersion.
+ 
+### Music
+ 
+Background music gradually intensifies as the player survives longer.
+  
+### Sound Effects
+ 
+Examples include:
+ 
+ 
+- Gravity flip sound
+ 
+- Near miss sound
+ 
+- Obstacle collision sound
+ 
+- Score milestone sound
+ 
+
+ 
+These sounds reinforce player actions.
+  
+# Visual Style
+ 
+The game uses a **minimalist neon style**.
+ 
+Key design elements:
+ 
+ 
+- Dark background
+ 
+- Bright glowing obstacles
+ 
+- Smooth particle effects
+ 
+- Simple character design
+ 
+
+ 
+This style keeps the visuals clean and readable during fast gameplay.
+  
+# Monetization
+ 
+The game monetizes through advertisements.
+ 
+## Rewarded Ads
+ 
+Shown when:
+ 
+ 
+- Player chooses to revive
+ 
+
+  
+## Interstitial Ads
+ 
+Displayed occasionally:
+ 
+ 
+- After several completed runs
+ 
+- Between gameplay sessions
+ 
+
+ 
+These ads appear naturally during gameplay breaks.
+  
+# Retention Features
+ 
+To keep players returning, the game includes:
+ 
+### Score Goals
+ 
+Players attempt to beat their personal best.
+  
+### Unlock Progress
+ 
+Players work toward unlocking new skins.
+  
+### Leaderboard Competition
+ 
+Players compete against others for higher rankings.
+  
+### Short Game Sessions
+ 
+Each run lasts around **15–60 seconds**, making the game easy to play anytime.
+  
+# Target Audience
+ 
+The game targets:
+ 
+ 
+- Casual mobile players
+ 
+- Players who enjoy skill-based arcade games
+ 
+- Fans of endless runners
+ 
+
+ 
+The simple controls make it accessible to players of all ages.
+  
+# Platform
+ 
+Primary platform:
+ 
+ 
+- Mobile (Android and iOS)
+ 
+
+ 
+Portrait orientation for comfortable one-hand play.
+  
+# Unique Selling Points
+ 
+Gravity Flip stands out through:
+ 
+ 
+- Extremely simple one-tap gameplay
+ 
+- Fast and addictive retry loop
+ 
+- Minimalist visual style
+ 
+- Skill-based gameplay
+ 
+- Short session design perfect for mobile users
