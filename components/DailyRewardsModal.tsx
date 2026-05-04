@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import COLORS from '@/constants/colors';
-import { DAILY_REWARDS } from '@/constants/game';
+import { DAILY_REWARDS, BALANCING } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
 
 interface Props {
@@ -71,7 +71,7 @@ export default function DailyRewardsModal({ visible, onClose }: Props) {
             <View style={styles.header}>
               <View>
                 <Text style={styles.title}>DAILY REWARDS</Text>
-                <Text style={styles.subtitle}>LOGIN EACH DAY FOR BIGGER BONUSES</Text>
+                <Text style={styles.subtitle}>{`LOGIN EACH DAY • ${BALANCING.milestones.join('/')} PROGRESSION`}</Text>
               </View>
               <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <Ionicons name="close" size={24} color={COLORS.textSecondary} />
