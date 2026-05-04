@@ -8,6 +8,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import COLORS from '@/constants/colors';
+import { ACHIEVEMENTS } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
 
 interface Props {
@@ -16,11 +17,14 @@ interface Props {
   onLeaderboard: () => void;
   onSettings: () => void;
   onChallenges: () => void;
+  onAchievements: () => void;
+  onDailyRewards: () => void;
+  onUpgrades: () => void;
 }
 
-export default function MainMenu({ onPlay, onSkins, onLeaderboard, onSettings, onChallenges }: Props) {
+export default function MainMenu({ onPlay, onSkins, onLeaderboard, onSettings, onChallenges, onAchievements, onDailyRewards, onUpgrades }: Props) {
   const insets = useSafeAreaInsets();
-  const { bestScore, coins, dailyChallenges } = useGame();
+  const { bestScore, coins, dailyChallenges, achievedIds, dailyRewardClaimed } = useGame();
 
   const logoAnim = useRef(new Animated.Value(0)).current;
   const buttonsAnim = useRef(new Animated.Value(0)).current;
@@ -32,6 +36,9 @@ export default function MainMenu({ onPlay, onSkins, onLeaderboard, onSettings, o
   const pendingChallenges = dailyChallenges.challenges.filter(
     ch => !dailyChallenges.claimed.includes(ch.id) && (dailyChallenges.progress[ch.id] || 0) >= ch.target
   ).length;
+
+  const newAchievements = ACHIEVEMENTS.filter(a => !achievedIds.includes(a.id)).length;
+  const canClaimReward = !dailyRewardClaimed;
 
   useEffect(() => {
     Animated.sequence([
@@ -49,7 +56,6 @@ export default function MainMenu({ onPlay, onSkins, onLeaderboard, onSettings, o
       Animated.timing(floatAnim, { toValue: 0, duration: 1400, useNativeDriver: true }),
     ])).start();
 
-    // Player bouncing between floor/ceiling
     Animated.loop(Animated.sequence([
       Animated.timing(playerAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
       Animated.delay(400),
@@ -57,7 +63,6 @@ export default function MainMenu({ onPlay, onSkins, onLeaderboard, onSettings, o
       Animated.delay(400),
     ])).start();
 
-    // Eye blink
     Animated.loop(Animated.sequence([
       Animated.delay(2000),
       Animated.timing(eyeAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
@@ -79,18 +84,19 @@ export default function MainMenu({ onPlay, onSkins, onLeaderboard, onSettings, o
       <GridLines />
 
       <Animated.View style={[styles.logoSection, { opacity: logoAnim, transform: [{ translateY: floatAnim }, { translateY: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [-28, 0] }) }] }]}>
-        {/* Animated player character */}
         <Animated.View style={[styles.heroPlayer, {
-          transform: [{
-            translateY: playerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -36] })
-          }],
+          transform: [{ translateY: playerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -36] }) }],
         }]}>
           <View style={styles.heroPlayerBody}>
-            {/* Eyes */}
             <Animated.View style={[styles.heroEyeL, { transform: [{ scaleY: eyeAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.1] }) }] }]} />
             <Animated.View style={[styles.heroEyeR, { transform: [{ scaleY: eyeAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.1] }) }] }]} />
           </View>
-          <View style={styles.heroTrail} />
+          {/* Flip trail preview */}
+          <View style={styles.heroTrailWrap}>
+            {['#00F5FF', '#00CCFF', '#80FAFF', '#00F5FF88'].map((c, i) => (
+              <View key={i} style={[styles.heroTrailStreak, { backgroundColor: c, width: 18 - i * 3, opacity: 1 - i * 0.2 }]} />
+            ))}
+          </View>
         </Animated.View>
 
         <Text style={styles.logoTitle}>GRAVITY</Text>
@@ -126,10 +132,11 @@ export default function MainMenu({ onPlay, onSkins, onLeaderboard, onSettings, o
           </TouchableOpacity>
         </Animated.View>
 
+        {/* Row 1 */}
         <View style={styles.gridRow}>
           <TouchableOpacity onPress={() => handleBtn(onChallenges)} activeOpacity={0.75} style={styles.gridBtn}>
             <LinearGradient colors={['rgba(255,230,0,0.15)', 'rgba(255,230,0,0.04)']} style={styles.gridBtnInner}>
-              <View style={styles.challengeIconWrap}>
+              <View style={styles.badgeWrap}>
                 <Ionicons name="flash" size={20} color={COLORS.neonYellow} />
                 {pendingChallenges > 0 && <View style={styles.pendingDot} />}
               </View>
@@ -150,6 +157,32 @@ export default function MainMenu({ onPlay, onSkins, onLeaderboard, onSettings, o
               <Text style={[styles.gridBtnText, { color: COLORS.neonYellow }]}>RANKS</Text>
             </View>
           </TouchableOpacity>
+        </View>
+
+        {/* Row 2 */}
+        <View style={styles.gridRow}>
+          <TouchableOpacity onPress={() => handleBtn(onAchievements)} activeOpacity={0.75} style={styles.gridBtn}>
+            <View style={styles.gridBtnInner}>
+              <View style={styles.badgeWrap}>
+                <Ionicons name="medal-outline" size={20} color='#FF9900' />
+                {newAchievements > 0 && <View style={[styles.pendingDot, { backgroundColor: '#FF9900' }]} />}
+              </View>
+              <Text style={[styles.gridBtnText, { color: '#FF9900' }]}>ACHIEVE</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => handleBtn(onDailyRewards)} activeOpacity={0.75} style={styles.gridBtn}>
+            <LinearGradient
+              colors={canClaimReward ? ['rgba(255,230,0,0.15)', 'rgba(255,230,0,0.04)'] : ['rgba(255,255,255,0.03)', 'rgba(255,255,255,0.01)']}
+              style={styles.gridBtnInner}
+            >
+              <View style={styles.badgeWrap}>
+                <Ionicons name="gift-outline" size={20} color={canClaimReward ? COLORS.neonYellow : COLORS.textMuted} />
+                {canClaimReward && <View style={styles.pendingDot} />}
+              </View>
+              <Text style={[styles.gridBtnText, canClaimReward ? { color: COLORS.neonYellow } : { color: COLORS.textMuted }]}>REWARDS</Text>
+            </LinearGradient>
+          </TouchableOpacity>
 
           <TouchableOpacity onPress={() => handleBtn(onSettings)} activeOpacity={0.75} style={styles.gridBtn}>
             <View style={styles.gridBtnInner}>
@@ -158,6 +191,15 @@ export default function MainMenu({ onPlay, onSkins, onLeaderboard, onSettings, o
             </View>
           </TouchableOpacity>
         </View>
+
+        {/* Upgrades — full-width */}
+        <TouchableOpacity onPress={() => handleBtn(onUpgrades)} activeOpacity={0.75} style={styles.upgradesBtn}>
+          <LinearGradient colors={['rgba(0,245,255,0.14)', 'rgba(0,245,255,0.04)']} style={styles.upgradesBtnInner} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+            <Ionicons name="flash" size={18} color={COLORS.neonCyan} />
+            <Text style={[styles.gridBtnText, { color: COLORS.neonCyan, letterSpacing: 2 }]}>UPGRADES</Text>
+            <Ionicons name="chevron-forward" size={14} color={`${COLORS.neonCyan}80`} />
+          </LinearGradient>
+        </TouchableOpacity>
       </Animated.View>
 
       <Text style={styles.tapHint}>TAP SCREEN TO FLIP GRAVITY</Text>
@@ -189,18 +231,10 @@ const styles = StyleSheet.create({
     width: 34, height: 34, borderRadius: 7, backgroundColor: COLORS.neonCyan,
     shadowColor: COLORS.neonCyan, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 16,
   },
-  heroEyeL: {
-    position: 'absolute', left: 7, top: 10, width: 6, height: 6,
-    borderRadius: 3, backgroundColor: '#001A1E',
-  },
-  heroEyeR: {
-    position: 'absolute', left: 20, top: 10, width: 6, height: 6,
-    borderRadius: 3, backgroundColor: '#001A1E',
-  },
-  heroTrail: {
-    width: 28, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(0,245,255,0.3)',
-    marginTop: 4,
-  },
+  heroEyeL: { position: 'absolute', left: 7, top: 10, width: 6, height: 6, borderRadius: 3, backgroundColor: '#001A1E' },
+  heroEyeR: { position: 'absolute', left: 20, top: 10, width: 6, height: 6, borderRadius: 3, backgroundColor: '#001A1E' },
+  heroTrailWrap: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 5 },
+  heroTrailStreak: { height: 4, borderRadius: 2 },
   logoTitle: {
     fontFamily: 'Inter_700Bold', fontSize: 52, color: COLORS.neonCyan, letterSpacing: 10,
     textShadowColor: COLORS.neonCyan, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 18, lineHeight: 58,
@@ -218,7 +252,9 @@ const styles = StyleSheet.create({
   },
   statValue: { fontFamily: 'Inter_700Bold', fontSize: 15, color: COLORS.neonYellow },
   coinDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.neonYellow },
-  buttonsSection: { width: '100%', paddingHorizontal: 20, gap: 14 },
+  upgradesBtn: { width: '100%', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,245,255,0.15)' },
+  upgradesBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 13, paddingHorizontal: 20 },
+  buttonsSection: { width: '100%', paddingHorizontal: 20, gap: 10 },
   playButton: {
     borderRadius: 16, overflow: 'hidden',
     shadowColor: COLORS.neonCyan, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 18, elevation: 8,
@@ -226,13 +262,16 @@ const styles = StyleSheet.create({
   playGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: 12 },
   playText: { fontFamily: 'Inter_700Bold', fontSize: 20, color: COLORS.background, letterSpacing: 4 },
   gridRow: { flexDirection: 'row', gap: 10 },
-  gridBtn: { flex: 1, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,245,255,0.12)', backgroundColor: 'rgba(0,245,255,0.04)' },
-  gridBtnInner: { alignItems: 'center', paddingVertical: 14, gap: 5 },
+  gridBtn: {
+    flex: 1, borderRadius: 12, overflow: 'hidden',
+    borderWidth: 1, borderColor: 'rgba(0,245,255,0.12)', backgroundColor: 'rgba(0,245,255,0.04)',
+  },
+  gridBtnInner: { alignItems: 'center', paddingVertical: 12, gap: 4 },
   gridBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: COLORS.neonCyan, letterSpacing: 2 },
-  challengeIconWrap: { position: 'relative' },
+  badgeWrap: { position: 'relative' },
   pendingDot: {
     position: 'absolute', top: -2, right: -2, width: 8, height: 8,
-    borderRadius: 4, backgroundColor: COLORS.neonPink,
+    borderRadius: 4, backgroundColor: COLORS.neonYellow,
     borderWidth: 1.5, borderColor: '#070E1C',
   },
   tapHint: { fontFamily: 'Inter_400Regular', fontSize: 9, color: COLORS.textMuted, letterSpacing: 3 },

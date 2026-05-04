@@ -9,6 +9,9 @@ import SkinsModal from '@/components/SkinsModal';
 import LeaderboardModal from '@/components/LeaderboardModal';
 import SettingsModal from '@/components/SettingsModal';
 import DailyChallengesModal from '@/components/DailyChallengesModal';
+import AchievementsModal from '@/components/AchievementsModal';
+import DailyRewardsModal from '@/components/DailyRewardsModal';
+import UpgradesModal from '@/components/UpgradesModal';
 
 type Screen = 'menu' | 'game' | 'dead';
 
@@ -23,8 +26,10 @@ export default function App() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showChallenges, setShowChallenges] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [showDailyRewards, setShowDailyRewards] = useState(false);
+  const [showUpgrades, setShowUpgrades] = useState(false);
   const gameKeyRef = useRef(0);
-  // Ref to the live GameScreen so we can call revive() without remounting
   const gameScreenRef = useRef<GameScreenRef>(null);
 
   const handlePlay = useCallback(() => {
@@ -43,7 +48,6 @@ export default function App() {
   }, []);
 
   const handleRetry = useCallback(() => {
-    // Full restart — increment key so GameScreen remounts fresh
     gameKeyRef.current += 1;
     setIsPaused(false);
     setCurrentScore(0);
@@ -51,9 +55,7 @@ export default function App() {
   }, []);
 
   const handleRevive = useCallback(() => {
-    // Resume from exactly where the player died — do NOT remount GameScreen
     setScreen('game');
-    // Give the React tree a tick to hide the DeathScreen overlay, then revive
     requestAnimationFrame(() => {
       gameScreenRef.current?.revive();
     });
@@ -74,9 +76,6 @@ export default function App() {
     setScreen('menu');
   }, []);
 
-  // GameScreen stays mounted whenever we are not in the menu.
-  // The DeathScreen is rendered as an absolute overlay on top of it so that
-  // the game world remains visible underneath and revive can resume in-place.
   const gameActive = screen !== 'menu';
 
   return (
@@ -90,11 +89,12 @@ export default function App() {
           onLeaderboard={() => setShowLeaderboard(true)}
           onSettings={() => setShowSettings(true)}
           onChallenges={() => setShowChallenges(true)}
+          onAchievements={() => setShowAchievements(true)}
+          onDailyRewards={() => setShowDailyRewards(true)}
+          onUpgrades={() => setShowUpgrades(true)}
         />
       )}
 
-      {/* GameScreen lives here while any game session is active (playing OR dead).
-          Keeping it mounted lets revive() restore the exact game state. */}
       {gameActive && (
         <GameScreen
           key={`game-${gameKeyRef.current}`}
@@ -106,7 +106,6 @@ export default function App() {
         />
       )}
 
-      {/* Death overlay — sits on top of the still-mounted GameScreen */}
       {screen === 'dead' && (
         <View style={StyleSheet.absoluteFill}>
           <DeathScreen
@@ -135,6 +134,9 @@ export default function App() {
       <LeaderboardModal visible={showLeaderboard} onClose={() => setShowLeaderboard(false)} />
       <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />
       <DailyChallengesModal visible={showChallenges} onClose={() => setShowChallenges(false)} />
+      <AchievementsModal visible={showAchievements} onClose={() => setShowAchievements(false)} />
+      <DailyRewardsModal visible={showDailyRewards} onClose={() => setShowDailyRewards(false)} />
+      <UpgradesModal visible={showUpgrades} onClose={() => setShowUpgrades(false)} />
     </View>
   );
 }

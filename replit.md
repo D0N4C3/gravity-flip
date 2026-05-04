@@ -5,15 +5,20 @@
 Gravity Flip is a fast-paced 2D endless runner mobile game built with React Native and Expo. The player controls a character that automatically runs forward through a corridor filled with obstacles. The sole mechanic is tapping the screen to flip gravity (floor ↔ ceiling). The goal is to survive as long as possible while the speed increases over time.
 
 Key game features:
-- Single-tap gravity flip control
-- Score based on distance/time survived
-- Collectible coins and power-ups
+- Single-tap gravity flip control (cooldown upgradeable via Flip Speed upgrade)
+- Score based on distance/time survived with passive Score Boost upgrade
+- 3-tier collectible coins: standard (+1), high-value orange (+3), rare neon (+5)
+- Power-ups: shield (multi-hit with Shield Armor upgrade), slowmo, double score, magnet (range upgradeable)
+- Obstacles: floor/ceiling spikes, moving spikes, rotating blades, laser gates, spike walls (gap-navigation)
+- Character Upgrade System: Flip Speed, Magnet Power, Shield Armor, Score Boost (4 tiers each, coin cost)
+- Speed curve: linear 0–30s, faster linear 30–60s, exponential 60s+ (capped at max)
 - Multiple unlockable character skins (unlocked by score milestones)
 - Daily challenges with coin rewards
 - Local leaderboard tracking personal best runs
 - Multiple visual environments (Neon, Cyber, Lava, Ice) unlocked by score
 - Pause/resume, death screen with optional revive
 - Settings for music, SFX, and vibration
+- Achievements and daily reward streak system
 
 The project includes both a React Native/Expo mobile app (the actual game) and a minimal Express backend server (currently a placeholder with no game-specific routes).
 

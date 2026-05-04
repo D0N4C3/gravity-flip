@@ -1,0 +1,499 @@
+GRAVITY FLIP — FULL PROJECT OVERVIEW
+
+---
+
+1. CORE CONCEPT
+
+Gravity Flip is a fast-paced 2D endless runner built around a single mechanic:
+tap to flip gravity.
+
+The player controls a constantly moving character inside a horizontal corridor filled with hazards. By flipping gravity, the player alternates between running on the floor and the ceiling to avoid obstacles.
+
+The core experience is:
+
+- Immediate start
+- High-speed gameplay
+- Frequent failure
+- Instant retry
+- Skill-based progression
+
+The game is designed for:
+
+- Short sessions (15–60 seconds)
+- High replayability
+- Addictive loop behavior
+
+---
+
+2. CORE GAME LOGIC
+
+Player Movement System
+
+- Character auto-runs forward at constant speed
+- No horizontal control
+- Vertical state toggles between:
+  - Floor (gravity down)
+  - Ceiling (gravity up)
+
+Gravity Flip Mechanic
+
+- Tap input triggers gravity inversion
+- Flip animation duration: ~0.15–0.25 seconds
+- Player transitions smoothly between surfaces
+
+Collision System
+
+- Collision types:
+  
+  - Instant death obstacles
+  - Power-up triggers
+  - Collectible pickups
+
+- Hit detection:
+  
+  - Bounding box collision (simple rectangle or capsule)
+
+Game Speed System
+
+- Base speed increases over time
+- Speed curve:
+  - Linear increase first 30 seconds
+  - Exponential increase after 60 seconds
+
+---
+
+3. MAP / LEVEL STRUCTURE
+
+Endless Procedural Corridor
+
+The game uses a procedural generation system:
+
+- Predefined obstacle chunks
+- Randomized sequence
+- Difficulty-based spawning
+
+Corridor Layout
+
+- Fixed horizontal scrolling
+- Two surfaces:
+  - Floor
+  - Ceiling
+
+Chunk System
+
+Each chunk:
+
+- Length: 1–3 seconds of gameplay
+- Contains obstacle pattern
+- Tagged by difficulty level
+
+---
+
+4. LEVEL / DIFFICULTY SYSTEM
+
+Difficulty Stages
+
+Stage 1 (0–10 sec)
+
+- Single spikes
+- Wide spacing
+- Slow speed
+
+Stage 2 (10–25 sec)
+
+- Alternating spikes
+- Basic patterns
+
+Stage 3 (25–45 sec)
+
+- Moving obstacles
+- Faster pacing
+
+Stage 4 (45–60 sec)
+
+- Tight gaps
+- Mixed hazards
+
+Stage 5 (60+ sec)
+
+- High speed
+- Complex patterns
+- Minimal reaction time
+
+---
+
+5. OBSTACLES SYSTEM
+
+Basic Obstacles
+
+Floor Spikes
+
+- Triangular shapes
+- Static
+- Positioned on bottom
+
+Ceiling Spikes
+
+- Inverted triangles
+- Attached to top
+
+Spike Walls
+
+- Full vertical barriers with narrow gaps
+
+---
+
+Advanced Obstacles
+
+Moving Spikes
+
+- Vertical oscillation
+- Predictable movement loop
+
+Rotating Blades
+
+- Circular with spinning arms
+- Constant rotation speed
+
+Laser Gates
+
+- Thin beam lines
+- Activate/deactivate timing
+
+Narrow Tunnels
+
+- Tight corridors requiring precise flipping
+
+---
+
+6. POWER-UPS SYSTEM
+
+Types
+
+Shield
+
+- Absorbs 1 hit
+- Visual: glowing bubble
+
+Slow Motion
+
+- Reduces game speed by 40%
+- Duration: 3 seconds
+
+Magnet
+
+- Attracts coins within radius
+
+Double Score
+
+- Multiplies score gain ×2
+
+---
+
+Spawn Logic
+
+- Appears every 10–20 seconds
+- Random placement
+- Risk vs reward positioning
+
+---
+
+7. SCORE SYSTEM
+
+- Score increases based on time survived
+- 1 second = +1 point
+
+Bonus Systems
+
+- Near miss bonus: +2
+- Perfect flip combo multiplier
+
+---
+
+8. COINS & COLLECTIBLES
+
+Coins
+
+Types
+
+- Standard Coin
+- High-value Coin
+- Rare Neon Coin
+
+Placement
+
+- Along risky paths
+- Near obstacles
+
+---
+
+Special Collectibles
+
+Energy Orbs
+
+- Used for upgrades
+
+Skin Tokens
+
+- Unlock cosmetics
+
+---
+
+9. REWARDS SYSTEM
+
+Unlock Rewards
+
+Score Milestone Rewards:
+
+- 50 → Basic skin
+- 100 → Rare skin
+- 200 → Trail effect
+- 400 → Special effect
+- 600 → Legendary skin
+
+---
+
+Daily Rewards
+
+- Day 1 → Coins
+- Day 2 → Power-up
+- Day 3 → Skin fragment
+
+---
+
+10. SHOP SYSTEM
+
+Currency Types
+
+- Coins (primary)
+- Gems (premium)
+
+---
+
+Shop Sections
+
+Skins
+
+- Cost range: 100–2000 coins
+
+Trails
+
+- Cost range: 200–1500 coins
+
+Power-ups
+
+- Consumable purchases
+
+Boosts
+
+- Temporary upgrades
+
+---
+
+11. CHARACTER UPGRADE SYSTEM
+
+Upgrade Categories
+
+Flip Speed
+
+- Faster gravity transition
+- Cost:
+  - Level 1 → 100 coins
+  - Level 2 → 250 coins
+  - Level 3 → 500 coins
+
+Shield Duration
+
+- Increases protection time
+
+Magnet Radius
+
+- Expands coin collection range
+
+Score Multiplier
+
+- Passive score bonus
+
+---
+
+12. PRICING STRUCTURE
+
+Economy Balance
+
+- Average run reward: 10–30 coins
+- Mid-tier item: ~500 coins
+- High-tier item: ~1500 coins
+
+---
+
+13. DEATH SYSTEM
+
+Trigger
+
+- Any obstacle collision
+
+Effects
+
+- Slow motion (0.5 sec)
+- Bright flash
+- Particle explosion
+- Screen shake
+
+---
+
+14. REVIVE SYSTEM
+
+- One revive per run
+- Triggered via rewarded ad
+- Respawn slightly before death point
+
+---
+
+15. UI / HUD DESIGN
+
+HUD Elements
+
+Score Counter
+
+- Top center
+- Bold digital font
+- White/neon glow
+
+Pause Button
+
+- Top right
+- Circular icon
+
+---
+
+16. MAIN MENU DESIGN
+
+Layout
+
+- Centered logo
+- Large glowing "Play" button
+- Secondary buttons below
+
+---
+
+17. LEADERBOARD DESIGN
+
+Layout
+
+- Vertical list
+- Rank numbers (left)
+- Player name (center)
+- Score (right)
+
+Visual Style
+
+- Neon lines
+- Dark transparent panels
+
+---
+
+18. VISUAL STYLE GUIDE
+
+Overall Theme
+
+- Minimalist neon futuristic
+
+---
+
+Color Palette
+
+Primary:
+
+- Neon Blue
+- Neon Purple
+- Neon Pink
+
+Secondary:
+
+- Dark Gray / Black background
+
+Accent:
+
+- Electric Yellow
+- Cyan
+
+---
+
+Character Design
+
+Shape
+
+- Simple geometric (square or capsule)
+
+Style
+
+- Smooth edges
+- Glowing outline
+- Trailing particles
+
+---
+
+Map Design
+
+Background
+
+- Dark gradient
+- Subtle animated grid or lines
+
+Foreground
+
+- Clean flat surfaces
+- Glowing edges
+
+---
+
+Obstacles Design
+
+- Sharp geometric shapes
+- Bright neon glow
+- High contrast against background
+
+---
+
+Effects
+
+- Particle sparks on movement
+- Glow pulses on speed increase
+- Light trails during flips
+
+---
+
+19. AUDIO DESIGN
+
+Sound Effects
+
+- Flip: quick electric sound
+- Near miss: sharp tone
+- Death: impact burst
+
+Music
+
+- Fast-paced electronic
+- Looping track
+- Tempo increases with difficulty
+
+---
+
+20. RETENTION SYSTEMS
+
+- Score chasing
+- Unlock progression
+- Daily rewards
+- Leaderboards
+- Skill mastery
+
+---
+
+21. GAME LOOP SUMMARY
+
+Play → Avoid obstacles → Collect coins → Die →
+View score → Unlock rewards → Retry
+
+---
+
+END OF OVERVIEW

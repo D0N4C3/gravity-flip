@@ -1,0 +1,555 @@
+GRAVITY FLIP — COMPLETE PROJECT OVERVIEW
+
+---
+
+1. CORE CONCEPT
+
+Gravity Flip is a high-speed 2D endless runner where the player controls a character moving through a narrow corridor while avoiding obstacles by flipping gravity.
+
+The player does not control movement speed or direction—only gravity.
+
+Core mechanic:
+
+- Tap → instantly invert gravity (floor ↔ ceiling)
+
+Core goal:
+
+- Survive as long as possible
+- Achieve the highest score (distance-based)
+
+---
+
+2. CORE GAME LOGIC
+
+2.1 Player Movement Logic
+
+- Character runs automatically forward at constant speed
+- Gravity pulls the character toward:
+  - Floor (default)
+  - Ceiling (after flip)
+- Flip is instant but includes a very short transition animation (0.1–0.2s)
+
+2.2 Collision System
+
+- Collision detection uses simple bounding box or capsule collider
+- Collision with any obstacle results in death
+- Optional grace mechanic: 1–2 pixel forgiveness window for fairness
+
+2.3 Score System
+
+- Score increases continuously based on time survived
+
+Formula:
+
+- Score += 1 per second
+- Bonus:
+  - Near-miss: +2
+  - Perfect flip: +5
+
+2.4 Speed Scaling
+
+- Speed increases gradually over time
+
+Example:
+
+- 0–20 sec: slow
+- 20–40 sec: medium
+- 40–60 sec: fast
+- 60+ sec: extreme
+
+Speed multiplier increases every 10 seconds
+
+---
+
+3. MAP / LEVEL DESIGN
+
+3.1 Map Structure
+
+- Infinite procedurally generated corridor
+- Two parallel surfaces:
+  - Floor
+  - Ceiling
+
+3.2 Map Segments
+
+The map is built from reusable segments:
+
+- Straight path
+- Spike patterns
+- Gap sequences
+- Moving obstacle zones
+- Tight corridor zones
+
+Each segment:
+
+- Length: 2–5 seconds of gameplay
+- Randomized but weighted by difficulty
+
+3.3 Biomes / Environments
+
+Neon Core (Default)
+
+- Dark background
+- Cyan/purple glowing obstacles
+
+Cyber Grid
+
+- Grid background
+- Electric blue lines
+
+Lava Tunnel
+
+- Red/orange glowing cracks
+- Heat distortion
+
+Ice Cavern
+
+- Blue/white tones
+- Subtle fog effect
+
+Each biome rotates every 30–60 seconds
+
+---
+
+4. OBSTACLES
+
+4.1 Basic Obstacles
+
+Floor Spikes
+
+- Triangular shapes
+- Fixed to floor
+
+Ceiling Spikes
+
+- Inverted triangles
+
+Spike Walls
+
+- Full vertical barriers with small gaps
+
+---
+
+4.2 Advanced Obstacles
+
+Moving Spikes
+
+- Move between floor and ceiling
+- Predictable timing
+
+Rotating Blades
+
+- Circular with spinning motion
+- Radius-based hitbox
+
+Laser Gates
+
+- Horizontal beams
+- Activate/deactivate in intervals
+
+Crushing Blocks
+
+- Move inward from floor and ceiling
+- Timed traps
+
+Narrow Tunnels
+
+- Very tight gaps requiring perfect timing
+
+---
+
+5. LEVEL / DIFFICULTY SYSTEM
+
+No traditional levels — uses dynamic difficulty scaling
+
+Difficulty Layers
+
+Phase 1 (0–15s)
+
+- Basic spikes
+- Wide gaps
+
+Phase 2 (15–30s)
+
+- Alternating spikes
+- Faster pacing
+
+Phase 3 (30–50s)
+
+- Moving obstacles
+- Laser introduction
+
+Phase 4 (50–70s)
+
+- Tight spaces
+- Mixed patterns
+
+Phase 5 (70s+)
+
+- Extreme speed
+- Complex combinations
+
+---
+
+6. PLAYER FEATURES
+
+6.1 Perfect Flip System
+
+- Flip within precise timing window near obstacle
+
+Rewards:
+
+- Score multiplier
+- Visual flash
+- Combo chain
+
+6.2 Combo System
+
+- Consecutive perfect flips increase multiplier
+
+Example:
+
+- x1 → x2 → x3 → x5 → x10
+
+---
+
+7. COINS & COLLECTIBLES
+
+7.1 Coins
+
+- Spawn along paths or risky routes
+- Used for purchases
+
+Types:
+
+- Standard coin (+1)
+- Rare coin (+5)
+- Magnet coin (auto collect nearby coins)
+
+7.2 Collectibles
+
+Power Orbs
+
+Temporary abilities:
+
+- Shield (1 hit protection)
+- Slow Motion (3 seconds)
+- Score Boost (2x score)
+- Coin Magnet
+
+---
+
+8. SHOP SYSTEM
+
+8.1 Currency
+
+- Coins (earned in-game)
+- Optional premium currency (gems)
+
+---
+
+8.2 Shop Categories
+
+Skins
+
+Cosmetic only
+
+Price Examples:
+
+- Common: 100 coins
+- Rare: 300 coins
+- Epic: 700 coins
+- Legendary: 1500 coins
+
+---
+
+Trails
+
+Visual effects behind character
+
+Examples:
+
+- Neon trail
+- Fire trail
+- Glitch trail
+
+Price:
+
+- 200–800 coins
+
+---
+
+Powerups (Permanent Upgrades)
+
+Upgradeable stats:
+
+Shield Duration
+
+- Level 1: 1 hit (free)
+- Level 2: +0.5 sec immunity (300 coins)
+- Level 3: +1 sec immunity (700 coins)
+
+Slow Motion Duration
+
+- Level 1: 2 sec (200 coins)
+- Level 2: 3 sec (500 coins)
+- Level 3: 4 sec (1000 coins)
+
+Coin Magnet Radius
+
+- Level 1: small (300 coins)
+- Level 2: medium (700 coins)
+- Level 3: large (1200 coins)
+
+---
+
+9. CHARACTER SYSTEM
+
+9.1 Base Character
+
+- Simple geometric form (rectangle or cube)
+
+9.2 Skins
+
+Examples:
+
+- Robot (metallic edges)
+- Ninja (dark with glowing eyes)
+- Neon Cube (glowing outline)
+- Ghost (semi-transparent)
+- Glitch Runner (distortion effect)
+
+---
+
+9.3 Character Upgrading
+
+Upgrades affect:
+
+- Visual effects
+- Trail intensity
+- Minor gameplay polish (NOT advantage)
+
+Upgrade Cost Example:
+
+- Level 1 → 2: 200 coins
+- Level 2 → 3: 500 coins
+- Level 3 → 4: 1000 coins
+
+---
+
+10. REWARD SYSTEM
+
+10.1 Score Milestones
+
+- 50 → Unlock skin
+- 100 → Coins bonus
+- 200 → Rare skin
+- 500 → Legendary reward
+
+---
+
+10.2 Daily Rewards
+
+- Day 1: 50 coins
+- Day 2: 100 coins
+- Day 3: Powerup
+- Day 7: Rare skin
+
+---
+
+10.3 Achievements
+
+Examples:
+
+- First flip
+- Survive 60 seconds
+- Collect 100 coins
+- 10 perfect flips in a row
+
+---
+
+11. UI / UX DESIGN
+
+11.1 Visual Style
+
+General Style
+
+- Minimalist neon
+- High contrast
+- Clean geometry
+
+---
+
+11.2 Character Design
+
+Shape:
+
+- Square or rounded rectangle
+
+Color:
+
+- Bright neon (cyan, magenta, green)
+
+Effects:
+
+- Glow outline
+- Trailing particles
+
+---
+
+11.3 Map Design
+
+Background:
+
+- Dark (black or deep gradient)
+
+Foreground:
+
+- Glowing obstacles
+- Subtle animated patterns
+
+---
+
+11.4 Obstacles Design
+
+Shape:
+
+- Sharp geometric forms
+
+Color:
+
+- Red for danger
+- Yellow for active hazards
+- Purple for advanced hazards
+
+Effects:
+
+- Pulsing glow
+- Light flicker
+
+---
+
+11.5 HUD Design
+
+Score Counter
+
+- Top center
+- Large bold font
+- White or neon color
+
+Pause Button
+
+- Top right
+- Minimal icon
+
+---
+
+11.6 Menu UI
+
+Buttons
+
+- Rounded rectangles
+- Neon borders
+- Soft glow on hover/tap
+
+Layout
+
+- Centered vertical stack
+- Clean spacing
+
+---
+
+11.7 Death Screen
+
+Elements:
+
+- Final score (large)
+- Best score (smaller)
+- Retry button (highlighted)
+- Revive button (secondary)
+
+Visual:
+
+- Slight blur background
+- Fade-in animation
+
+---
+
+11.8 Leaderboard UI
+
+Style:
+
+- Dark panel
+- Neon text highlights
+
+Elements:
+
+- Rank number
+- Player name
+- Score
+
+Top players:
+
+- Gold, silver, bronze highlights
+
+---
+
+12. AUDIO DESIGN
+
+- Flip sound: sharp click
+- Near miss: rising tone
+- Speed increase: whoosh
+- Death: impact + distortion
+
+Music:
+
+- Fast-paced electronic / synthwave
+
+---
+
+13. GAME FLOW SUMMARY
+
+1. Open game
+2. Main menu
+3. Start run
+4. Avoid obstacles
+5. Collect coins
+6. Die
+7. View score
+8. Retry or revive
+
+Loop repeats rapidly
+
+---
+
+14. MONETIZATION SYSTEM
+
+Rewarded Ads
+
+- Revive after death
+
+Interstitial Ads
+
+- Every 3–5 runs
+
+Optional Purchases
+
+- Coin packs
+- Exclusive skins
+
+---
+
+15. TECHNICAL STRUCTURE (HIGH LEVEL)
+
+- Procedural map generator
+- Object pooling for obstacles
+- Event-driven input system
+- State machine:
+  - Menu
+  - Playing
+  - Paused
+  - Dead
+
+---
+
+END OF OVERVIEW

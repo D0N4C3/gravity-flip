@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import COLORS from '@/constants/colors';
 import {
-  SKINS, GAME, ENVIRONMENTS, ENV_ORDER, POWERUPS,
+  SKINS, TRAILS, GAME, ENVIRONMENTS, ENV_ORDER, POWERUPS,
   PowerupType, EnvironmentId, ChallengeType, SCORE_MILESTONES,
 } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
@@ -27,7 +27,8 @@ interface Rect { left: number; right: number; top: number; bottom: number; }
 type ObstacleType =
   | 'floor_spike' | 'ceiling_spike'
   | 'floor_spikes' | 'ceiling_spikes'
-  | 'moving_spike' | 'rotating_blade';
+  | 'moving_spike' | 'rotating_blade'
+  | 'laser_gate' | 'spike_wall';
 
 interface Obstacle {
   id: string; type: ObstacleType;
@@ -36,10 +37,22 @@ interface Obstacle {
   moveY?: number; moveVelocity?: number;
   rotation?: number;
   warned?: boolean;
+  laserOn?: boolean; laserTimer?: number;
+  laserCycleOn?: number; laserCycleOff?: number;
+  laserFromFloor?: boolean;
+  gapAtFloor?: boolean; // spike_wall: gap is at floor or ceiling
 }
 
 interface CoinPickup {
   id: string; x: number; y: number; collected: boolean;
+  rare?: boolean;      // +5, neon gold
+  highValue?: boolean; // +3, orange
+}
+
+interface FlipTrail {
+  id: string; x: number; y: number;
+  w: number; h: number;
+  life: number; color: string;
 }
 
 interface PowerupPickup {
@@ -85,6 +98,7 @@ interface GState {
   flipCooldown: number;
   // Power-ups
   powerupShieldActive: boolean;
+  shieldHitsRemaining: number;
   powerupSlowmoTime: number;
   powerupDoubleScoreTime: number;
   powerupMagnetTime: number;
@@ -103,7 +117,9 @@ interface GState {
   trail: TrailParticle[];
   bursts: BurstParticle[];
   flipRings: FlipRing[];
+  flipTrails: FlipTrail[];
   nearMissTimer: number;
+  nearMissCount: number;
   deathSlowmo: number;
   // Environment
   envIndex: number;
@@ -178,7 +194,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   ref,
 ) {
   const insets = useSafeAreaInsets();
-  const { selectedSkinId, settings, submitScore, addCoins, updateChallengeProgress } = useGame();
+  const { selectedSkinId, selectedTrailId, settings, submitScore, addCoins, updateChallengeProgress, recordRunStats, upgrades } = useGame();
   const skin = useMemo(() => SKINS.find(s => s.id === selectedSkinId) || SKINS[0], [selectedSkinId]);
 
   const topPadding = Platform.OS === 'web' ? 67 : insets.top;
@@ -205,14 +221,14 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     nextObsTimer: 1.5, scoreTimer: 1,
     totalTime: 0, reviveUsed: false,
     flipCooldown: 0,
-    powerupShieldActive: false,
+    powerupShieldActive: false, shieldHitsRemaining: 1,
     powerupSlowmoTime: 0, powerupDoubleScoreTime: 0, powerupMagnetTime: 0,
     powerupPickups: [], coins: [], coinsCollected: 0,
     comboStreak: 0, comboDisplayTimer: 0,
     perfectFlipTimer: 0, perfectFlipCount: 0,
     flipCount: 0, maxCombo: 1,
-    trail: [], bursts: [], flipRings: [],
-    nearMissTimer: 0, deathSlowmo: 0,
+    trail: [], bursts: [], flipRings: [], flipTrails: [],
+    nearMissTimer: 0, nearMissCount: 0, deathSlowmo: 0,
     envIndex: 0, envFlashTimer: 0, survivalTime: 0,
     bgFar: [], bgMid: [], bgNear: [],
     popup: null, dangerFloor: 0, dangerCeil: 0,
@@ -344,6 +360,13 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
     g.flipRings = g.flipRings.filter(r => r.life > 0);
 
+    // ── Flip trail streaks ─────────────────────────────────────────────────────
+    for (const ft of g.flipTrails) {
+      ft.x -= g.speed * dt;
+      ft.life -= rawDelta / 0.38;
+    }
+    g.flipTrails = g.flipTrails.filter(ft => ft.life > 0);
+
     // ── Background parallax ────────────────────────────────────────────────────
     const updateBgLayer = (nodes: BgNode[]) => {
       for (const n of nodes) {
@@ -372,6 +395,13 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       if (obs.type === 'rotating_blade') {
         obs.rotation = ((obs.rotation ?? 0) + 190 * dt) % 360;
       }
+      if (obs.type === 'laser_gate') {
+        obs.laserTimer = (obs.laserTimer ?? 0) - dt;
+        if (obs.laserTimer <= 0) {
+          obs.laserOn = !obs.laserOn;
+          obs.laserTimer = obs.laserOn ? (obs.laserCycleOn ?? 0.55) : (obs.laserCycleOff ?? 0.75);
+        }
+      }
     }
     g.obstacles = g.obstacles.filter(o => o.x + o.width + 60 > 0);
 
@@ -385,11 +415,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     if (g.powerupMagnetTime > 0) {
       const px = P_X + P_SIZE / 2;
       const py = g.playerY + P_SIZE / 2;
+      const effectiveMagnetRange = MAGNET_RANGE + upgrades.magnet_radius * 55;
       for (const coin of g.coins) {
         const dx = px - coin.x;
         const dy = py - coin.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < MAGNET_RANGE && dist > 4) {
+        if (dist < effectiveMagnetRange && dist > 4) {
           coin.x += (dx / dist) * MAGNET_SPEED * dt;
           coin.y += (dy / dist) * MAGNET_SPEED * dt;
         }
@@ -415,7 +446,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       g.scoreTimer = 1;
       const comboMult = getComboMultiplier(g.comboStreak);
       const doubleMult = g.powerupDoubleScoreTime > 0 ? 2 : 1;
-      const gained = comboMult * doubleMult;
+      const upgradeBonus = upgrades.score_multiplier;
+      const gained = comboMult * doubleMult + upgradeBonus;
       scoreRef.current += gained;
       setScore(scoreRef.current);
       onScoreChange?.(scoreRef.current);
@@ -432,7 +464,19 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     // ── Difficulty ────────────────────────────────────────────────────────────
     g.totalTime += rawDelta;
     g.survivalTime += rawDelta;
-    g.speed = Math.min(GAME.OBSTACLE_SPEED_INITIAL + g.totalTime * 2.2, GAME.OBSTACLE_SPEED_MAX);
+    // Speed curve: linear 0–30s → faster linear 30–60s → exponential after 60s
+    {
+      const t = g.totalTime;
+      let newSpeed: number;
+      if (t < 30) {
+        newSpeed = GAME.OBSTACLE_SPEED_INITIAL + t * 2.0;
+      } else if (t < 60) {
+        newSpeed = GAME.OBSTACLE_SPEED_INITIAL + 60 + (t - 30) * 3.0;
+      } else {
+        newSpeed = (GAME.OBSTACLE_SPEED_INITIAL + 150) + Math.pow(t - 60, 1.45) * 1.5;
+      }
+      g.speed = Math.min(newSpeed, GAME.OBSTACLE_SPEED_MAX);
+    }
 
     // ── Environment cycling ───────────────────────────────────────────────────
     const newEnvIndex = Math.floor(g.totalTime / GAME.ENV_CHANGE_INTERVAL) % ENV_ORDER.length;
@@ -460,11 +504,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         g.comboStreak += 1;
         g.maxCombo = Math.max(g.maxCombo, getComboMultiplier(g.comboStreak));
         g.comboDisplayTimer = 2.0;
+        scoreRef.current += 5;
         const label = getComboLabel(g.comboStreak);
         if (label) {
-          showPopup(g, `PERFECT ${label}`, COLORS.neonCyan, 'md');
+          showPopup(g, `PERFECT ${label} +5`, COLORS.neonCyan, 'md');
         } else {
-          showPopup(g, 'PERFECT FLIP', COLORS.neonCyan, 'sm');
+          showPopup(g, 'PERFECT FLIP +5', COLORS.neonCyan, 'sm');
         }
       }
     }
@@ -500,9 +545,11 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       for (const hb of hitboxes) {
         if (rectsOverlap(pH, hb)) {
           if (g.powerupShieldActive) {
-            g.powerupShieldActive = false;
+            g.shieldHitsRemaining -= 1;
+            if (g.shieldHitsRemaining <= 0) g.powerupShieldActive = false;
             spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, COLORS.neonCyan, 10);
-            showPopup(g, 'SHIELD BLOCK', COLORS.neonCyan, 'sm');
+            const hitsLeft = g.shieldHitsRemaining;
+            showPopup(g, hitsLeft > 0 ? `SHIELD BLOCK (${hitsLeft})` : 'SHIELD BREAK', COLORS.neonCyan, 'sm');
             if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           } else {
             died = true;
@@ -512,7 +559,9 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         if (rectsClose(pH, hb, GAME.NEAR_MISS_THRESHOLD) && !nearMiss) {
           nearMiss = true;
           if (g.nearMissTimer <= 0) {
-            showPopup(g, 'NEAR MISS!', COLORS.neonOrange, 'sm');
+            g.nearMissCount += 1;
+            scoreRef.current += 2;
+            showPopup(g, 'NEAR MISS! +2', COLORS.neonOrange, 'sm');
             if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }
         }
@@ -531,8 +580,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       };
       if (rectsOverlap(pH, coinRect)) {
         coin.collected = true;
-        g.coinsCollected += 1;
-        spawnBurst(g, coin.x, coin.y, getEnv(g).coinColor, 5);
+        const coinValue = coin.rare ? 5 : coin.highValue ? 3 : 1;
+        g.coinsCollected += coinValue;
+        const burstColor = coin.rare ? '#FFE600' : coin.highValue ? '#FF9900' : getEnv(g).coinColor;
+        spawnBurst(g, coin.x, coin.y, burstColor, coin.rare ? 12 : coin.highValue ? 7 : 5);
+        if (coin.rare) showPopup(g, 'RARE COIN +5', '#FFE600', 'sm');
+        else if (coin.highValue) showPopup(g, '+3', '#FF9900', 'sm');
         if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
@@ -590,13 +643,21 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         updateChallengeProgress('reach_score', finalScore);
         updateChallengeProgress('perfect_flips', perfects);
         updateChallengeProgress('max_combo', maxCombo);
+        recordRunStats({
+          flips: g.flipCount,
+          survivalSeconds: Math.floor(g.survivalTime),
+          coinsEarned: finalCoins,
+          perfectFlips: g.perfectFlipCount,
+          nearMisses: g.nearMissCount,
+          score: finalScore,
+        });
         onDeath(finalScore, finalCoins, !g.reviveUsed);
       }, 850);
     }
 
     setRenderTick(t => t + 1);
     rAFRef.current = requestAnimationFrame(gameLoop);
-  }, [P_ON_FLOOR, P_ON_CEIL, P_X, P_SIZE, FLOOR_TOP, CEIL_BOT, MID_Y, PLAY_H, settings.vibration, skin]);
+  }, [P_ON_FLOOR, P_ON_CEIL, P_X, P_SIZE, FLOOR_TOP, CEIL_BOT, MID_Y, PLAY_H, settings.vibration, skin, selectedTrailId, recordRunStats, upgrades]);
 
   // ─── Helper functions ───────────────────────────────────────────────────────
 
@@ -621,7 +682,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   }
 
   function activatePowerup(type: PowerupType, g: GState) {
-    if (type === 'shield') g.powerupShieldActive = true;
+    if (type === 'shield') {
+      g.powerupShieldActive = true;
+      g.shieldHitsRemaining = 1 + upgrades.shield_strength;
+    }
     else if (type === 'slowmo') g.powerupSlowmoTime = POWERUPS.slowmo.duration;
     else if (type === 'double_score') g.powerupDoubleScoreTime = POWERUPS.double_score.duration;
     else if (type === 'magnet') g.powerupMagnetTime = POWERUPS.magnet.duration;
@@ -654,7 +718,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       const y = isString
         ? stringY                                           // line of coins at fixed Y
         : centerY + (Math.random() - 0.5) * safeSpread;  // scattered near centre
-      g.coins.push({ id: mkId(), x: baseX + i * 34, y, collected: false });
+      const roll = Math.random();
+      const rare = roll < 0.12;
+      const highValue = !rare && roll < 0.27;
+      g.coins.push({ id: mkId(), x: baseX + i * 34, y, collected: false, rare, highValue });
     }
   }
 
@@ -684,6 +751,23 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       }
       case 'rotating_blade':
         return [{ left: obs.x - BLADE_R + 5, right: obs.x + BLADE_R - 5, top: MID_Y - BLADE_R + 5, bottom: MID_Y + BLADE_R - 5 }];
+      case 'laser_gate':
+        if (!obs.laserOn) return [];
+        if (obs.laserFromFloor) {
+          return [{ left: obs.x - 3, right: obs.x + 3, top: FLOOR_TOP - PLAY_H * 0.52, bottom: FLOOR_TOP }];
+        }
+        return [{ left: obs.x - 3, right: obs.x + 3, top: CEIL_BOT, bottom: CEIL_BOT + PLAY_H * 0.52 }];
+      case 'spike_wall': {
+        const GAP = P_SIZE + 18;
+        if (obs.gapAtFloor) {
+          // Gap at floor: player must be on floor — solid block occupies top portion
+          return [{ left: obs.x, right: obs.x + obs.width, top: CEIL_BOT, bottom: FLOOR_TOP - GAP }];
+        }
+        // Gap at ceiling: player must be on ceiling — solid block occupies bottom portion
+        return [{ left: obs.x, right: obs.x + obs.width, top: CEIL_BOT + GAP, bottom: FLOOR_TOP }];
+      }
+      default:
+        return [];
     }
   }
 
@@ -715,10 +799,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       return { id, type: Math.random() < 0.5 ? 'floor_spikes' : 'ceiling_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
     }
     const r = Math.random();
-    if (r < 0.25) return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-    if (r < 0.5) return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 95 + Math.random() * 55 };
-    if (r < 0.72) return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
-    return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+    if (r < 0.12) return { id, type: 'spike_wall' as const, x, width: 10, gapAtFloor: Math.random() < 0.5 };
+    if (r < 0.24) return { id, type: 'laser_gate' as const, x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+    if (r < 0.40) return { id, type: 'rotating_blade' as const, x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
+    if (r < 0.56) return { id, type: 'moving_spike' as const, x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 95 + Math.random() * 55 };
+    if (r < 0.76) return { id, type: 'floor_spikes' as const, x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+    return { id, type: 'ceiling_spikes' as const, x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
   }
 
   // ─── Tap handler ────────────────────────────────────────────────────────────
@@ -730,7 +816,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
     g.onFloor = !g.onFloor;
     g.flipCount += 1;
-    g.flipCooldown = GAME.FLIP_COOLDOWN;
+    const effectiveCooldown = [0.32, 0.26, 0.20, 0.14][upgrades.flip_speed] ?? 0.32;
+    g.flipCooldown = effectiveCooldown;
     g.scaleY = 0.55;
     g.scaleX = 1.45;
 
@@ -744,6 +831,21 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       life: 1,
       color: skin.color,
     });
+
+    // Spawn dramatic flip trail streaks behind the player
+    const trailDef = TRAILS.find(t => t.id === selectedTrailId) || TRAILS[0];
+    for (let i = 0; i < 14; i++) {
+      const color = trailDef.colors[i % trailDef.colors.length];
+      g.flipTrails.push({
+        id: mkId(),
+        x: P_X - 4 - i * 10,
+        y: g.playerY + P_SIZE * 0.5 + (Math.random() - 0.5) * P_SIZE * 0.9,
+        w: 10 + Math.random() * 22,
+        h: 2.5 + Math.random() * 4.5,
+        life: 1.0 - i * 0.03,
+        color,
+      });
+    }
 
     // Perfect flip detection: is there an obstacle 60–180px ahead?
     const nearObs = g.obstacles.find(o => o.x > P_X + 30 && o.x < P_X + 180);
@@ -900,6 +1002,22 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         }]} pointerEvents="none" />
       )}
 
+      {/* Flip trail streaks (gravity switch burst) */}
+      {g.flipTrails.map(ft => (
+        <View key={ft.id} pointerEvents="none" style={{
+          position: 'absolute',
+          left: ft.x - ft.w / 2, top: ft.y - ft.h / 2,
+          width: ft.w, height: ft.h,
+          borderRadius: ft.h / 2,
+          backgroundColor: ft.color,
+          opacity: Math.max(0, ft.life * 0.85),
+          shadowColor: ft.color,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.9,
+          shadowRadius: 5,
+        }} />
+      ))}
+
       {/* Trail particles */}
       {g.trail.map(t => (
         <View key={t.id} pointerEvents="none" style={{
@@ -931,17 +1049,35 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       ))}
 
       {/* Coins */}
-      {g.coins.map(coin => (
-        <View key={coin.id} pointerEvents="none" style={{
-          position: 'absolute',
-          left: coin.x - GAME.COIN_VISUAL_RADIUS, top: coin.y - GAME.COIN_VISUAL_RADIUS,
-          width: GAME.COIN_VISUAL_RADIUS * 2, height: GAME.COIN_VISUAL_RADIUS * 2,
-          borderRadius: GAME.COIN_VISUAL_RADIUS,
-          backgroundColor: env.coinColor,
-          borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)',
-          shadowColor: env.coinColor, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 7,
-        }} />
-      ))}
+      {g.coins.map(coin => {
+        const R = coin.rare ? GAME.COIN_VISUAL_RADIUS * 1.55 : coin.highValue ? GAME.COIN_VISUAL_RADIUS * 1.25 : GAME.COIN_VISUAL_RADIUS;
+        const cColor = coin.rare ? '#FFE600' : coin.highValue ? '#FF9900' : env.coinColor;
+        return (
+          <View key={coin.id} pointerEvents="none" style={{
+            position: 'absolute',
+            left: coin.x - R, top: coin.y - R,
+            width: R * 2, height: R * 2,
+            borderRadius: R,
+            backgroundColor: cColor,
+            borderWidth: coin.rare ? 2 : 1.5,
+            borderColor: coin.rare ? '#FFFFFF' : coin.highValue ? '#FFCC88' : 'rgba(255,255,255,0.4)',
+            shadowColor: cColor, shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: coin.rare ? 1 : coin.highValue ? 0.9 : 0.85,
+            shadowRadius: coin.rare ? 14 : coin.highValue ? 10 : 7,
+          }}>
+            {coin.rare && (
+              <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 9, fontWeight: '900', color: '#A06000', lineHeight: 10 }}>★</Text>
+              </View>
+            )}
+            {coin.highValue && (
+              <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 8, fontWeight: '900', color: '#7A3500', lineHeight: 9 }}>3</Text>
+              </View>
+            )}
+          </View>
+        );
+      })}
 
       {/* Power-up pickups */}
       {g.powerupPickups.map(pu => (
@@ -1200,6 +1336,75 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
         <View style={{ width: BLADE_R * 2 - 6, height: 2.5, backgroundColor: color, position: 'absolute' }} />
         <View style={{ width: 2.5, height: BLADE_R * 2 - 6, backgroundColor: color, position: 'absolute' }} />
         <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+      </View>
+    );
+  }
+  if (obs.type === 'spike_wall') {
+    const GAP = 26 + 18; // P_SIZE + 18 (matching hitbox)
+    const solidTop = obs.gapAtFloor ? ceilBot : ceilBot + GAP;
+    const solidBot = obs.gapAtFloor ? floorTop - GAP : floorTop;
+    const solidH = solidBot - solidTop;
+    const gapTop = obs.gapAtFloor ? floorTop - GAP : ceilBot;
+    return (
+      <View pointerEvents="none">
+        {/* Solid barrier */}
+        <View style={{
+          position: 'absolute', left: obs.x, top: solidTop,
+          width: obs.width, height: solidH,
+          backgroundColor: color,
+          shadowColor: color, shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.9, shadowRadius: 10,
+        }} />
+        {/* Gap indicator arrows pointing into the gap */}
+        <View style={{
+          position: 'absolute', left: obs.x - 7, top: gapTop + (GAP / 2) - 8,
+          width: 0, height: 0,
+          borderTopWidth: 8, borderBottomWidth: 8, borderRightWidth: 12,
+          borderTopColor: 'transparent', borderBottomColor: 'transparent',
+          borderRightColor: color, opacity: 0.6,
+        }} />
+        {/* Edge spikes on barrier near gap */}
+        <View style={{
+          position: 'absolute', left: obs.x, top: solidBot - 4,
+          width: obs.width, height: 4,
+          backgroundColor: obs.gapAtFloor ? 'transparent' : color, opacity: 0.6,
+        }} />
+      </View>
+    );
+  }
+  if (obs.type === 'laser_gate') {
+    const beamH = (floorTop - ceilBot) * 0.52;
+    const top = obs.laserFromFloor ? floorTop - beamH : ceilBot;
+    const isOn = !!obs.laserOn;
+    const laserColor = isOn ? '#FF2266' : '#FF226633';
+    return (
+      <View pointerEvents="none">
+        {/* Beam body */}
+        <View style={{
+          position: 'absolute', left: obs.x - 2, top,
+          width: 4, height: beamH,
+          backgroundColor: laserColor,
+          shadowColor: '#FF2266',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: isOn ? 1 : 0.15,
+          shadowRadius: isOn ? 14 : 3,
+        }} />
+        {/* Core bright line */}
+        <View style={{
+          position: 'absolute', left: obs.x - 0.5, top,
+          width: 1, height: beamH,
+          backgroundColor: isOn ? '#FFFFFF' : 'transparent',
+          opacity: isOn ? 0.9 : 0,
+        }} />
+        {/* Source node at wall */}
+        <View style={{
+          position: 'absolute', left: obs.x - 5,
+          top: obs.laserFromFloor ? floorTop - 5 : ceilBot - 5,
+          width: 10, height: 10, borderRadius: 5,
+          backgroundColor: isOn ? '#FF2266' : '#FF226655',
+          shadowColor: '#FF2266', shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: isOn ? 1 : 0.3, shadowRadius: isOn ? 10 : 3,
+        }} />
       </View>
     );
   }
