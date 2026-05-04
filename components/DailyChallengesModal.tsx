@@ -9,7 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import COLORS from '@/constants/colors';
 import { useGame } from '@/context/GameContext';
-import { DailyChallenge } from '@/constants/game';
+import { DailyChallenge, BALANCING } from '@/constants/game';
 
 interface Props {
   visible: boolean;
@@ -166,7 +166,7 @@ export default function DailyChallengesModal({ visible, onClose }: Props) {
 
             <View style={styles.footer}>
               <Ionicons name="information-circle-outline" size={12} color={COLORS.textMuted} />
-              <Text style={styles.footerText}>Challenges reset daily at midnight</Text>
+              <Text style={styles.footerText}>{`Challenges reset daily at midnight • target run income ${BALANCING.economy.targetCoinsPerRun.min}-${BALANCING.economy.targetCoinsPerRun.max} coins`}</Text>
             </View>
           </LinearGradient>
         </Animated.View>

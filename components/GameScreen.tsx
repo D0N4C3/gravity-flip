@@ -96,6 +96,7 @@ interface GState {
   scoreTimer: number;
   totalTime: number;
   reviveUsed: boolean;
+  reviveInvulnerableUntil: number;
   flipCooldown: number;
   // Power-ups
   powerupState: ReturnType<typeof createPowerupManagerState>;
@@ -217,7 +218,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     obstacles: [],
     speed: GAME.OBSTACLE_SPEED_INITIAL,
     nextObsTimer: 1.5, scoreTimer: 1,
-    totalTime: 0, reviveUsed: false,
+    totalTime: 0, reviveUsed: false, reviveInvulnerableUntil: 0,
     flipCooldown: 0,
     powerupState: createPowerupManagerState(),
     nextPowerupSpawnAt: 10 + Math.random() * 10,
@@ -274,10 +275,11 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   useImperativeHandle(ref, () => ({
     revive() {
       const g = gRef.current;
-      // Grant a 2-second shield so the player isn't instantly re-killed
       g.phase = 'playing';
       g.reviveUsed = true;
-      applyPowerup(g.powerupState, 'shield', Date.now(), upgrades.shield_strength);
+      const now = Date.now();
+      g.reviveInvulnerableUntil = now + 1500;
+      applyPowerup(g.powerupState, 'shield', now, upgrades.shield_strength);
       g.deathSlowmo = 0;
       deadFiredRef.current = false;
       isPausedRef.current = false;
@@ -538,11 +540,14 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
     let died = false;
     let nearMiss = false;
+    const isReviveImmune = Date.now() < g.reviveInvulnerableUntil;
     for (const obs of g.obstacles) {
       const hitboxes = getHitboxes(obs);
       for (const hb of hitboxes) {
         if (rectsOverlap(pH, hb)) {
-          if (g.powerupState.active.shield) {
+          if (isReviveImmune) {
+            showPopup(g, 'REVIVE IMMUNE', '#FFFFFF', 'sm');
+          } else if (g.powerupState.active.shield) {
             const hitsLeft = consumeShieldHit(g.powerupState);
             spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, COLORS.neonCyan, 10);
             showPopup(g, hitsLeft > 0 ? `SHIELD BLOCK (${hitsLeft})` : 'SHIELD BREAK', COLORS.neonCyan, 'sm');
@@ -576,7 +581,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       };
       if (rectsOverlap(pH, coinRect)) {
         coin.collected = true;
-        const coinValue = coin.rare ? 5 : coin.highValue ? 3 : 1;
+        const coinValue = coin.rare ? 4 : coin.highValue ? 2 : 1;
         g.coinsCollected += coinValue;
         const burstColor = coin.rare ? '#FFE600' : coin.highValue ? '#FF9900' : getEnv(g).coinColor;
         spawnBurst(g, coin.x, coin.y, burstColor, coin.rare ? 12 : coin.highValue ? 7 : 5);
@@ -694,7 +699,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   }
 
   function spawnCoins(obs: Obstacle, g: GState) {
-    const count = 2 + Math.floor(Math.random() * 3); // 2–4 coins per group
+    const count = 1 + Math.floor(Math.random() * 3); // 1–3 coins per group
     const baseX = obs.x + obs.width + 50 + Math.random() * 40;
     // 40% chance: horizontal string all at same Y (easy to collect by holding position)
     const isString = Math.random() < 0.4;
@@ -707,8 +712,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         ? stringY                                           // line of coins at fixed Y
         : centerY + (Math.random() - 0.5) * safeSpread;  // scattered near centre
       const roll = Math.random();
-      const rare = roll < 0.12;
-      const highValue = !rare && roll < 0.27;
+      const rare = roll < 0.08;
+      const highValue = !rare && roll < 0.20;
       g.coins.push({ id: mkId(), x: baseX + i * 34, y, collected: false, rare, highValue });
     }
   }

@@ -18,7 +18,7 @@ export const GAME = {
   NEAR_MISS_THRESHOLD: 24,
   COIN_VISUAL_RADIUS: 11,
   COIN_COLLECT_RADIUS: 26,
-  COIN_SPAWN_CHANCE: 0.70,
+  COIN_SPAWN_CHANCE: 0.68,
   POWERUP_VISUAL_RADIUS: 16,
   POWERUP_COLLECT_RADIUS: 30,
   POWERUP_SPAWN_CHANCE: 0.12,
@@ -28,6 +28,31 @@ export const GAME = {
   PERFECT_FLIP_WINDOW: 0.45,
   ENV_CHANGE_INTERVAL: 28,
 };
+
+export const BALANCING = {
+  milestones: [50, 100, 200, 400, 600],
+  economy: {
+    targetCoinsPerRun: { min: 10, max: 30, avg: 20 },
+    midTierPriceTarget: 500,
+    highTierPriceTarget: 1500,
+  },
+  rewards: {
+    dailyRewards: [50, 100, 200, 400, 600, 800, 1200],
+    challengeRewards: {
+      low: 50,
+      medium: 100,
+      high: 200,
+      elite: 400,
+      legendary: 600,
+    },
+  },
+  upgrades: {
+    flip_speed: { costs: [100, 250, 500], effects: ['Cooldown 0.26s', 'Cooldown 0.20s', 'Cooldown 0.14s'] },
+    magnet_radius: { costs: [125, 300, 600], effects: ['+45 range', '+90 range', '+150 range'] },
+    shield_strength: { costs: [150, 350, 700], effects: ['2 hits', '3 hits', '4 hits'] },
+    score_multiplier: { costs: [120, 300, 650], effects: ['+1 / sec', '+2 / sec', '+3 / sec'] },
+  },
+} as const;
 
 export type EnvironmentId = 'neon' | 'cyber' | 'lava' | 'ice';
 
@@ -83,7 +108,7 @@ export const SKINS = [
   { id: 'glitch', name: 'Glitch', color: '#00FF88', glowColor: 'rgba(0, 255, 136, 0.5)', trailColor: 'rgba(0, 255, 136, 0.18)', eyeColor: '#001A0D', unlockScore: 600, unlockCoins: 0, shape: 'diamond' as const },
 ];
 
-export const NEXT_SKIN_MILESTONES = [50, 100, 200, 400, 600];
+export const NEXT_SKIN_MILESTONES = [...BALANCING.milestones];
 
 // ─── Trail Types ───────────────────────────────────────────────────────────────
 
@@ -142,15 +167,7 @@ export interface LifetimeStats {
 
 // ─── Daily Rewards ─────────────────────────────────────────────────────────────
 
-export const DAILY_REWARDS = [
-  { day: 1, coins: 50 },
-  { day: 2, coins: 100 },
-  { day: 3, coins: 150 },
-  { day: 4, coins: 200 },
-  { day: 5, coins: 300 },
-  { day: 6, coins: 400 },
-  { day: 7, coins: 750 },
-];
+export const DAILY_REWARDS = BALANCING.rewards.dailyRewards.map((coins, idx) => ({ day: idx + 1, coins }));
 
 // ─── Challenges ────────────────────────────────────────────────────────────────
 
@@ -166,16 +183,16 @@ export interface DailyChallenge {
 }
 
 export const CHALLENGE_POOL: DailyChallenge[] = [
-  { id: 'c1', type: 'survive_seconds', label: 'Survive 30 seconds', target: 30, reward: 50, icon: 'time-outline' },
-  { id: 'c2', type: 'survive_seconds', label: 'Survive 60 seconds', target: 60, reward: 100, icon: 'time-outline' },
-  { id: 'c3', type: 'collect_coins', label: 'Collect 20 coins', target: 20, reward: 40, icon: 'ellipse' },
-  { id: 'c4', type: 'collect_coins', label: 'Collect 50 coins', target: 50, reward: 80, icon: 'ellipse' },
-  { id: 'c5', type: 'flip_gravity', label: 'Flip gravity 15 times', target: 15, reward: 30, icon: 'arrow-up-circle-outline' },
-  { id: 'c6', type: 'flip_gravity', label: 'Flip gravity 30 times', target: 30, reward: 60, icon: 'arrow-up-circle-outline' },
-  { id: 'c7', type: 'reach_score', label: 'Reach a score of 25', target: 25, reward: 45, icon: 'trophy-outline' },
-  { id: 'c8', type: 'reach_score', label: 'Reach a score of 50', target: 50, reward: 80, icon: 'trophy-outline' },
-  { id: 'c9', type: 'perfect_flips', label: 'Get 5 perfect flips', target: 5, reward: 35, icon: 'flash-outline' },
-  { id: 'c10', type: 'max_combo', label: 'Reach x5 combo', target: 5, reward: 60, icon: 'flame-outline' },
+  { id: 'c1', type: 'survive_seconds', label: 'Survive 30 seconds', target: 30, reward: BALANCING.rewards.challengeRewards.low, icon: 'time-outline' },
+  { id: 'c2', type: 'survive_seconds', label: 'Survive 60 seconds', target: 60, reward: BALANCING.rewards.challengeRewards.medium, icon: 'time-outline' },
+  { id: 'c3', type: 'collect_coins', label: 'Collect 20 coins', target: 20, reward: BALANCING.rewards.challengeRewards.low, icon: 'ellipse' },
+  { id: 'c4', type: 'collect_coins', label: 'Collect 50 coins', target: 50, reward: BALANCING.rewards.challengeRewards.high, icon: 'ellipse' },
+  { id: 'c5', type: 'flip_gravity', label: 'Flip gravity 15 times', target: 15, reward: BALANCING.rewards.challengeRewards.low, icon: 'arrow-up-circle-outline' },
+  { id: 'c6', type: 'flip_gravity', label: 'Flip gravity 30 times', target: 30, reward: BALANCING.rewards.challengeRewards.medium, icon: 'arrow-up-circle-outline' },
+  { id: 'c7', type: 'reach_score', label: 'Reach a score of 25', target: 25, reward: BALANCING.rewards.challengeRewards.medium, icon: 'trophy-outline' },
+  { id: 'c8', type: 'reach_score', label: 'Reach a score of 50', target: 50, reward: BALANCING.rewards.challengeRewards.high, icon: 'trophy-outline' },
+  { id: 'c9', type: 'perfect_flips', label: 'Get 5 perfect flips', target: 5, reward: BALANCING.rewards.challengeRewards.low, icon: 'flash-outline' },
+  { id: 'c10', type: 'max_combo', label: 'Reach x5 combo', target: 5, reward: BALANCING.rewards.challengeRewards.medium, icon: 'flame-outline' },
 ];
 
 export const SCORE_MILESTONES = [10, 25, 50, 100, 200, 500];
@@ -199,8 +216,8 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'Reduce gravity flip cooldown',
     icon: 'flash',
     maxLevel: 3,
-    costs: [100, 250, 500],
-    effectLabels: ['Cooldown 0.26s', 'Cooldown 0.20s', 'Cooldown 0.14s'],
+    costs: [...BALANCING.upgrades.flip_speed.costs],
+    effectLabels: [...BALANCING.upgrades.flip_speed.effects],
   },
   {
     id: 'magnet_radius',
@@ -208,8 +225,8 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'Expand coin magnet attraction range',
     icon: 'magnet',
     maxLevel: 3,
-    costs: [100, 250, 500],
-    effectLabels: ['+45 range', '+90 range', '+150 range'],
+    costs: [...BALANCING.upgrades.magnet_radius.costs],
+    effectLabels: [...BALANCING.upgrades.magnet_radius.effects],
   },
   {
     id: 'shield_strength',
@@ -217,8 +234,8 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'Shield absorbs more hits before breaking',
     icon: 'shield-checkmark',
     maxLevel: 3,
-    costs: [150, 350, 650],
-    effectLabels: ['2 hits', '3 hits', '4 hits'],
+    costs: [...BALANCING.upgrades.shield_strength.costs],
+    effectLabels: [...BALANCING.upgrades.shield_strength.effects],
   },
   {
     id: 'score_multiplier',
@@ -226,8 +243,8 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'Earn passive bonus score every second',
     icon: 'star',
     maxLevel: 3,
-    costs: [100, 250, 500],
-    effectLabels: ['+1 / sec', '+2 / sec', '+3 / sec'],
+    costs: [...BALANCING.upgrades.score_multiplier.costs],
+    effectLabels: [...BALANCING.upgrades.score_multiplier.effects],
   },
 ];
 
