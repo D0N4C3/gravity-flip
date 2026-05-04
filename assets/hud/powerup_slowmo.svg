@@ -1,0 +1,48 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="slowmo-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <radialGradient id="slowmo-bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#004455" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#001122" stop-opacity="0.9"/>
+    </radialGradient>
+    <linearGradient id="clock-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00FFCC"/>
+      <stop offset="100%" stop-color="#0088AA"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer rings (time ripple) -->
+  <circle cx="24" cy="24" r="22" fill="none" stroke="#00FFCC" stroke-width="0.8" opacity="0.2" filter="url(#slowmo-glow)"/>
+  <circle cx="24" cy="24" r="19" fill="none" stroke="#00FFCC" stroke-width="0.8" opacity="0.3"/>
+
+  <!-- Background -->
+  <circle cx="24" cy="24" r="20" fill="url(#slowmo-bg)"/>
+
+  <!-- Clock face -->
+  <circle cx="24" cy="24" r="14" fill="none" stroke="url(#clock-grad)" stroke-width="2" filter="url(#slowmo-glow)"/>
+
+  <!-- Clock tick marks -->
+  <line x1="24" y1="11" x2="24" y2="14" stroke="#00FFCC" stroke-width="1.5" opacity="0.8"/>
+  <line x1="24" y1="34" x2="24" y2="37" stroke="#00FFCC" stroke-width="1.5" opacity="0.8"/>
+  <line x1="11" y1="24" x2="14" y2="24" stroke="#00FFCC" stroke-width="1.5" opacity="0.8"/>
+  <line x1="34" y1="24" x2="37" y2="24" stroke="#00FFCC" stroke-width="1.5" opacity="0.8"/>
+
+  <!-- Clock hour hand (pointing to ~10) -->
+  <line x1="24" y1="24" x2="18" y2="18" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+  <!-- Clock minute hand (pointing to ~3, slow) -->
+  <line x1="24" y1="24" x2="32" y2="24" stroke="#00FFCC" stroke-width="1.5" stroke-linecap="round" filter="url(#slowmo-glow)"/>
+
+  <!-- Center dot -->
+  <circle cx="24" cy="24" r="2" fill="#00FFCC" filter="url(#slowmo-glow)"/>
+
+  <!-- Slow motion "S" wave at bottom -->
+  <path d="M16 38 C18 35 22 35 24 38 C26 41 30 41 32 38" fill="none" stroke="#00FFCC" stroke-width="1.5" opacity="0.7" filter="url(#slowmo-glow)"/>
+
+  <!-- Speed lines (reversed/fading) -->
+  <path d="M8 20 L12 20" stroke="#00FFCC" stroke-width="0.8" opacity="0.3"/>
+  <path d="M8 24 L11 24" stroke="#00FFCC" stroke-width="0.8" opacity="0.2"/>
+  <path d="M8 28 L12 28" stroke="#00FFCC" stroke-width="0.8" opacity="0.3"/>
+</svg>

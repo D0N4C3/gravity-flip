@@ -1,0 +1,94 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="glow-gold" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="sharp-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <linearGradient id="body-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE44D"/>
+      <stop offset="30%" stop-color="#FFA500"/>
+      <stop offset="70%" stop-color="#FF6B00"/>
+      <stop offset="100%" stop-color="#FFE44D"/>
+    </linearGradient>
+    <linearGradient id="face-royal" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1A0A00"/>
+      <stop offset="100%" stop-color="#2A1000"/>
+    </linearGradient>
+    <radialGradient id="eye-gold" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="40%" stop-color="#FFE44D"/>
+      <stop offset="100%" stop-color="#FF6B00" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.6"/>
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer corona rays -->
+  <g filter="url(#glow-gold)" opacity="0.6">
+    <line x1="32" y1="2" x2="32" y2="8" stroke="#FFE44D" stroke-width="1.5"/>
+    <line x1="50" y1="6" x2="47" y2="11" stroke="#FFE44D" stroke-width="1.5"/>
+    <line x1="62" y1="18" x2="57" y2="21" stroke="#FFE44D" stroke-width="1.5"/>
+    <line x1="62" y1="46" x2="57" y2="43" stroke="#FFE44D" stroke-width="1.5"/>
+    <line x1="50" y1="58" x2="47" y2="53" stroke="#FFE44D" stroke-width="1.5"/>
+    <line x1="32" y1="62" x2="32" y2="56" stroke="#FFE44D" stroke-width="1.5"/>
+    <line x1="14" y1="58" x2="17" y2="53" stroke="#FFE44D" stroke-width="1.5"/>
+    <line x1="2" y1="46" x2="7" y2="43" stroke="#FFE44D" stroke-width="1.5"/>
+    <line x1="2" y1="18" x2="7" y2="21" stroke="#FFE44D" stroke-width="1.5"/>
+    <line x1="14" y1="6" x2="17" y2="11" stroke="#FFE44D" stroke-width="1.5"/>
+  </g>
+
+  <!-- Outer ring -->
+  <rect x="5" y="5" width="54" height="54" rx="15" fill="none" stroke="#FFE44D" stroke-width="1.5" opacity="0.4" filter="url(#glow-gold)"/>
+
+  <!-- Body -->
+  <rect x="9" y="9" width="46" height="46" rx="13" fill="url(#body-gold)" filter="url(#sharp-glow)"/>
+
+  <!-- Shine overlay -->
+  <rect x="9" y="9" width="46" height="23" rx="13" fill="url(#shine)"/>
+
+  <!-- Inner panel -->
+  <rect x="13" y="13" width="38" height="38" rx="10" fill="url(#face-royal)"/>
+
+  <!-- Crown -->
+  <path d="M18 13 L22 7 L28 11 L32 6 L36 11 L42 7 L46 13" fill="#FFE44D" filter="url(#sharp-glow)" opacity="0.9"/>
+  <circle cx="22" cy="7" r="2.5" fill="#FFFFFF" filter="url(#sharp-glow)"/>
+  <circle cx="32" cy="6" r="3" fill="#FFE44D" filter="url(#sharp-glow)"/>
+  <circle cx="42" cy="7" r="2.5" fill="#FFFFFF" filter="url(#sharp-glow)"/>
+  <!-- Jewels in crown -->
+  <circle cx="22" cy="7" r="1.5" fill="#FF2200"/>
+  <circle cx="32" cy="6" r="2" fill="#00FFFF"/>
+  <circle cx="42" cy="7" r="1.5" fill="#FF2200"/>
+
+  <!-- Powerful squinting eyes -->
+  <path d="M17 28 L31 30" stroke="#FFA500" stroke-width="1.5" opacity="0.6"/>
+  <path d="M33 30 L47 28" stroke="#FFA500" stroke-width="1.5" opacity="0.6"/>
+  <ellipse cx="24" cy="31" rx="5" ry="5" fill="url(#eye-gold)" filter="url(#sharp-glow)"/>
+  <ellipse cx="40" cy="31" rx="5" ry="5" fill="url(#eye-gold)" filter="url(#sharp-glow)"/>
+  <circle cx="24" cy="31" r="2.5" fill="#FFFFFF"/>
+  <circle cx="40" cy="31" r="2.5" fill="#FFFFFF"/>
+  <!-- Star pupils -->
+  <path d="M22 31 L24 28 L26 31 L24 34 Z" fill="#FFA500"/>
+  <path d="M38 31 L40 28 L42 31 L40 34 Z" fill="#FFA500"/>
+
+  <!-- Determined mouth -->
+  <path d="M24 41 L40 41" stroke="#FFE44D" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Wing-like side accents -->
+  <path d="M9 24 L2 20 L2 32 L9 30" fill="#FFA500" opacity="0.5" filter="url(#sharp-glow)"/>
+  <path d="M55 24 L62 20 L62 32 L55 30" fill="#FFA500" opacity="0.5" filter="url(#sharp-glow)"/>
+
+  <!-- Armored corner details -->
+  <path d="M9 22 L9 13 L18 13" fill="none" stroke="#FFE44D" stroke-width="2" opacity="0.9"/>
+  <path d="M55 22 L55 13 L46 13" fill="none" stroke="#FFE44D" stroke-width="2" opacity="0.9"/>
+  <path d="M9 42 L9 51 L18 51" fill="none" stroke="#FFE44D" stroke-width="2" opacity="0.9"/>
+  <path d="M55 42 L55 51 L46 51" fill="none" stroke="#FFE44D" stroke-width="2" opacity="0.9"/>
+
+  <!-- Chest emblem -->
+  <path d="M32 44 L29 48 L32 52 L35 48 Z" fill="#FFE44D" filter="url(#sharp-glow)" opacity="0.8"/>
+</svg>

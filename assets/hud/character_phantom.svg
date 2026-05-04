@@ -1,0 +1,69 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="glow-purple" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <linearGradient id="body-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#BF00FF"/>
+      <stop offset="50%" stop-color="#7B00FF"/>
+      <stop offset="100%" stop-color="#FF00AA"/>
+    </linearGradient>
+    <linearGradient id="face-dark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#120020"/>
+      <stop offset="100%" stop-color="#1A0030"/>
+    </linearGradient>
+    <radialGradient id="eye-pink" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="50%" stop-color="#FF00AA"/>
+      <stop offset="100%" stop-color="#7B00FF" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Hexagonal pattern -->
+    <pattern id="hex-pattern" width="8" height="9" patternUnits="userSpaceOnUse">
+      <path d="M4 0 L8 2.5 L8 6.5 L4 9 L0 6.5 L0 2.5 Z" fill="none" stroke="#BF00FF" stroke-width="0.3" opacity="0.4"/>
+    </pattern>
+  </defs>
+
+  <!-- Rotating outer ring -->
+  <circle cx="32" cy="32" r="30" fill="none" stroke="#BF00FF" stroke-width="0.5" opacity="0.3" stroke-dasharray="4 3"/>
+  <circle cx="32" cy="32" r="27" fill="none" stroke="#FF00AA" stroke-width="0.5" opacity="0.2" stroke-dasharray="2 5"/>
+
+  <!-- Outer glow -->
+  <rect x="7" y="7" width="50" height="50" rx="14" fill="none" stroke="#BF00FF" stroke-width="2" opacity="0.5" filter="url(#glow-purple)"/>
+
+  <!-- Body -->
+  <rect x="10" y="10" width="44" height="44" rx="12" fill="url(#body-purple)" filter="url(#glow-purple)"/>
+
+  <!-- Hex texture overlay -->
+  <rect x="10" y="10" width="44" height="44" rx="12" fill="url(#hex-pattern)"/>
+
+  <!-- Inner panel -->
+  <rect x="14" y="14" width="36" height="36" rx="9" fill="url(#face-dark)"/>
+
+  <!-- Crown top accent -->
+  <path d="M22 14 L26 10 L32 13 L38 10 L42 14" fill="none" stroke="#FF00AA" stroke-width="1.5" stroke-linejoin="round"/>
+  <circle cx="26" cy="10" r="2" fill="#FF00AA" filter="url(#glow-purple)"/>
+  <circle cx="32" cy="13" r="1.5" fill="#BF00FF" filter="url(#glow-purple)"/>
+  <circle cx="38" cy="10" r="2" fill="#FF00AA" filter="url(#glow-purple)"/>
+
+  <!-- Angry eyes (angled) -->
+  <path d="M18 26 L30 28" stroke="#FF00AA" stroke-width="1.5" opacity="0.5"/>
+  <path d="M34 28 L46 26" stroke="#FF00AA" stroke-width="1.5" opacity="0.5"/>
+  <circle cx="24" cy="30" r="5" fill="url(#eye-pink)" filter="url(#glow-purple)"/>
+  <circle cx="40" cy="30" r="5" fill="url(#eye-pink)" filter="url(#glow-purple)"/>
+  <circle cx="24" cy="30" r="2" fill="#FFFFFF"/>
+  <circle cx="40" cy="30" r="2" fill="#FFFFFF"/>
+
+  <!-- Smirk mouth -->
+  <path d="M26 40 Q32 44 38 40" fill="none" stroke="#FF00AA" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Side spikes -->
+  <path d="M10 22 L4 26 L10 30" fill="none" stroke="#BF00FF" stroke-width="1.5" opacity="0.7"/>
+  <path d="M54 22 L60 26 L54 30" fill="none" stroke="#BF00FF" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- Corner marks -->
+  <path d="M10 20 L10 14 L16 14" fill="none" stroke="#FF00AA" stroke-width="1.5" opacity="0.9"/>
+  <path d="M54 20 L54 14 L48 14" fill="none" stroke="#FF00AA" stroke-width="1.5" opacity="0.9"/>
+  <path d="M10 44 L10 50 L16 50" fill="none" stroke="#FF00AA" stroke-width="1.5" opacity="0.9"/>
+  <path d="M54 44 L54 50 L48 50" fill="none" stroke="#FF00AA" stroke-width="1.5" opacity="0.9"/>
+</svg>

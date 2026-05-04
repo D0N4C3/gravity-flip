@@ -1,0 +1,60 @@
+<svg width="200" height="64" viewBox="0 0 200 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="rainbow-r" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF0040" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#FF0040" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="rainbow-o" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF8800" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#FF8800" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="rainbow-y" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFE000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#FFE000" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="rainbow-g" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00FF88" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#00FF88" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="rainbow-c" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00FFFF" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#00FFFF" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="rainbow-b" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4488FF" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#4488FF" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="rainbow-p" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#CC00FF" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#CC00FF" stop-opacity="0.8"/>
+    </linearGradient>
+    <filter id="prismatic-glow" x="-5%" y="-100%" width="110%" height="300%">
+      <feGaussianBlur stdDeviation="2 3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Layered rainbow stripes, each offset slightly -->
+  <path d="M0 18 C40 16 100 20 190 18" stroke="url(#rainbow-r)" stroke-width="2" fill="none" filter="url(#prismatic-glow)" opacity="0.9"/>
+  <path d="M0 22 C40 20 100 24 190 22" stroke="url(#rainbow-o)" stroke-width="2" fill="none" filter="url(#prismatic-glow)" opacity="0.9"/>
+  <path d="M0 26 C40 24 100 28 190 26" stroke="url(#rainbow-y)" stroke-width="2.5" fill="none" filter="url(#prismatic-glow)"/>
+  <path d="M0 30 C40 28 100 32 190 30" stroke="url(#rainbow-g)" stroke-width="2.5" fill="none" filter="url(#prismatic-glow)"/>
+  <path d="M0 34 C40 32 100 36 190 34" stroke="url(#rainbow-c)" stroke-width="2.5" fill="none" filter="url(#prismatic-glow)"/>
+  <path d="M0 38 C40 36 100 40 190 38" stroke="url(#rainbow-b)" stroke-width="2" fill="none" filter="url(#prismatic-glow)" opacity="0.9"/>
+  <path d="M0 42 C40 40 100 44 190 42" stroke="url(#rainbow-p)" stroke-width="2" fill="none" filter="url(#prismatic-glow)" opacity="0.9"/>
+
+  <!-- White core -->
+  <path d="M100 32 C130 30 160 32 190 32" stroke="#FFFFFF" stroke-width="1.5" fill="none" opacity="0.7"/>
+
+  <!-- Prismatic sparkle diamonds -->
+  <path d="M80 30 L83 27 L86 30 L83 33 Z" fill="#FFE000" opacity="0.8" filter="url(#prismatic-glow)"/>
+  <path d="M120 32 L123 29 L126 32 L123 35 Z" fill="#00FFFF" opacity="0.8" filter="url(#prismatic-glow)"/>
+  <path d="M155 30 L158 27 L161 30 L158 33 Z" fill="#FF00AA" opacity="0.8" filter="url(#prismatic-glow)"/>
+  <path d="M175 32 L178 29 L181 32 L178 35 Z" fill="#FFFFFF" opacity="0.9" filter="url(#prismatic-glow)"/>
+
+  <!-- Light refraction streaks -->
+  <path d="M60 25 L65 21" stroke="#FFFFFF" stroke-width="0.5" opacity="0.6"/>
+  <path d="M100 22 L106 17" stroke="#FFE000" stroke-width="0.5" opacity="0.5"/>
+  <path d="M140 26 L144 21" stroke="#00FFFF" stroke-width="0.5" opacity="0.5"/>
+  <path d="M170 24 L175 19" stroke="#CC00FF" stroke-width="0.5" opacity="0.5"/>
+</svg>

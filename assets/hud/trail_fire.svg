@@ -1,0 +1,54 @@
+<svg width="200" height="64" viewBox="0 0 200 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="fire-fade" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF4400" stop-opacity="0"/>
+      <stop offset="40%" stop-color="#FF6600" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#FFCC00" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="fire-core" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF2200" stop-opacity="0"/>
+      <stop offset="60%" stop-color="#FF8800" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.9"/>
+    </linearGradient>
+    <filter id="fire-glow" x="-10%" y="-100%" width="120%" height="300%">
+      <feGaussianBlur stdDeviation="3 4" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="fire-outer" x="-10%" y="-100%" width="120%" height="300%">
+      <feGaussianBlur stdDeviation="5 7"/>
+    </filter>
+  </defs>
+
+  <!-- Outer fire haze -->
+  <path d="M0 32 C20 20 40 44 60 28 C80 12 100 48 120 30 C140 14 160 42 190 32" stroke="#FF4400" stroke-width="12" fill="none" opacity="0.08" filter="url(#fire-outer)"/>
+
+  <!-- Flame wisps top -->
+  <path d="M40 32 C42 24 44 20 46 24 C48 16 50 12 52 18 C54 8 56 14 58 20 C60 28 62 32 64 30" fill="none" stroke="#FF6600" stroke-width="1.5" opacity="0.4" filter="url(#fire-glow)"/>
+  <path d="M90 32 C92 20 95 15 98 22 C100 10 103 18 106 26 C108 32 110 30 112 28" fill="none" stroke="#FFAA00" stroke-width="1.5" opacity="0.5" filter="url(#fire-glow)"/>
+  <path d="M140 32 C143 22 146 16 149 24 C151 14 154 20 157 28 C158 32 160 31 162 29" fill="none" stroke="#FF6600" stroke-width="1.5" opacity="0.4" filter="url(#fire-glow)"/>
+
+  <!-- Flame wisps bottom (mirror) -->
+  <path d="M55 32 C57 40 59 44 61 38 C63 48 65 42 67 36 C69 32 71 34 73 32" fill="none" stroke="#FF4400" stroke-width="1" opacity="0.3" filter="url(#fire-glow)"/>
+  <path d="M110 32 C113 42 116 46 119 38 C121 48 124 40 127 34" fill="none" stroke="#FF6600" stroke-width="1" opacity="0.3" filter="url(#fire-glow)"/>
+
+  <!-- Core trail -->
+  <path d="M0 32 C30 32 60 30 100 32 C140 34 160 30 190 32" stroke="url(#fire-fade)" stroke-width="4" fill="none" filter="url(#fire-glow)"/>
+
+  <!-- Inner white-hot core -->
+  <path d="M120 32 C140 32 160 31 190 32" stroke="url(#fire-core)" stroke-width="2" fill="none"/>
+
+  <!-- Ember particles -->
+  <circle cx="35" cy="28" r="2" fill="#FFCC00" opacity="0.6" filter="url(#fire-glow)"/>
+  <circle cx="55" cy="36" r="1.5" fill="#FF8800" opacity="0.5"/>
+  <circle cx="78" cy="26" r="2.5" fill="#FFCC00" opacity="0.7" filter="url(#fire-glow)"/>
+  <circle cx="100" cy="38" r="1" fill="#FF4400" opacity="0.4"/>
+  <circle cx="125" cy="27" r="2" fill="#FFCC00" opacity="0.6" filter="url(#fire-glow)"/>
+  <circle cx="148" cy="35" r="1.5" fill="#FF8800" opacity="0.5"/>
+  <circle cx="170" cy="29" r="2" fill="#FFCC00" opacity="0.8" filter="url(#fire-glow)"/>
+
+  <!-- Tiny sparks flying up -->
+  <path d="M60 28 L61 22" stroke="#FFCC00" stroke-width="1" opacity="0.6"/>
+  <path d="M100 30 L102 24" stroke="#FF8800" stroke-width="1" opacity="0.5"/>
+  <path d="M140 29 L141 21" stroke="#FFCC00" stroke-width="1" opacity="0.6"/>
+  <path d="M170 30 L173 23" stroke="#FF4400" stroke-width="0.8" opacity="0.5"/>
+</svg>
