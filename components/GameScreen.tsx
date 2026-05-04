@@ -14,7 +14,7 @@ import * as Haptics from 'expo-haptics';
 import COLORS from '@/constants/colors';
 import {
   SKINS, TRAILS, GAME, ENVIRONMENTS, ENV_ORDER, POWERUPS,
-  PowerupType, EnvironmentId, ChallengeType, SCORE_MILESTONES,
+  PowerupType, EnvironmentId, ChallengeType, SCORE_MILESTONES, OBSTACLE_BEHAVIOR, OBSTACLE_STAGE_WEIGHTS,
 } from '@/constants/game';
 import { applyPowerup, consumeShieldHit, createPowerupManagerState, getActivePowerups, getPowerupEffects, POWERUP_DEFS, tickPowerups } from '@/game/powerups';
 import { useGame } from '@/context/GameContext';
@@ -42,6 +42,7 @@ interface Obstacle {
   laserOn?: boolean; laserTimer?: number;
   laserCycleOn?: number; laserCycleOff?: number;
   laserFromFloor?: boolean;
+  telegraphing?: boolean;
   gapAtFloor?: boolean; // spike_wall: gap is at floor or ceiling
 }
 
@@ -148,9 +149,9 @@ interface GState {
 
 const SPIKE_H = 32;
 const SPIKE_W = 13;
-const BLADE_R = 21;
-const MOVE_HH = 17;
-const MOVE_HW = 11;
+const BLADE_R = OBSTACLE_BEHAVIOR.rotating_blade.radius;
+const MOVE_HH = OBSTACLE_BEHAVIOR.moving_spike.halfHeight;
+const MOVE_HW = OBSTACLE_BEHAVIOR.moving_spike.halfWidth;
 const TRAIL_INTERVAL = 0.028;
 const DANGER_DIST = 60;
 const MAGNET_RANGE = 140;
@@ -398,20 +399,23 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       obs.x -= g.speed * dt;
       if (obs.type === 'moving_spike') {
         obs.moveY = (obs.moveY ?? 0) + (obs.moveVelocity ?? 80) * dt;
-        const maxY = PLAY_H / 2 - MOVE_HH - 10;
+        const maxY = PLAY_H * OBSTACLE_BEHAVIOR.moving_spike.maxTravelRatio - MOVE_HH;
         if (Math.abs(obs.moveY) > maxY) {
           obs.moveVelocity = -(obs.moveVelocity ?? 80);
           obs.moveY = Math.sign(obs.moveY) * maxY;
         }
       }
       if (obs.type === 'rotating_blade') {
-        obs.rotation = ((obs.rotation ?? 0) + 190 * dt) % 360;
+        obs.rotation = ((obs.rotation ?? 0) + OBSTACLE_BEHAVIOR.rotating_blade.rotationSpeedDeg * dt) % 360;
       }
       if (obs.type === 'laser_gate') {
         obs.laserTimer = (obs.laserTimer ?? 0) - dt;
         if (obs.laserTimer <= 0) {
           obs.laserOn = !obs.laserOn;
+          obs.telegraphing = !obs.laserOn;
           obs.laserTimer = obs.laserOn ? (obs.laserCycleOn ?? 0.55) : (obs.laserCycleOff ?? 0.75);
+        } else if (!obs.laserOn) {
+          obs.telegraphing = (obs.laserTimer ?? 0) <= OBSTACLE_BEHAVIOR.laser_gate.telegraphWindow;
         }
       }
     }
@@ -444,7 +448,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     if (g.nextObsTimer <= 0) {
       const spawnEvents = spawnerRef.current.spawn({ elapsedSec: g.totalTime });
       for (const ev of spawnEvents) {
-        g.obstacles.push(spawnObstacleFromChunk(ev.obstacle));
+        const hazardWeights = OBSTACLE_STAGE_WEIGHTS[ev.stage] ?? {};
+        const hazardType = ev.obstacle.type as keyof typeof hazardWeights;
+        const spawnWeight = typeof hazardWeights[hazardType] === 'number' ? hazardWeights[hazardType] as number : 1;
+        if (Math.random() <= spawnWeight) g.obstacles.push(spawnObstacleFromChunk(ev.obstacle));
       }
 
       if (Math.random() < GAME.COIN_SPAWN_CHANCE && spawnEvents.length) {
@@ -782,11 +789,11 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       case 'laser_gate':
         if (!obs.laserOn) return [];
         if (obs.laserFromFloor) {
-          return [{ left: obs.x - 3, right: obs.x + 3, top: FLOOR_TOP - PLAY_H * 0.52, bottom: FLOOR_TOP }];
+          return [{ left: obs.x - 3, right: obs.x + 3, top: FLOOR_TOP - PLAY_H * OBSTACLE_BEHAVIOR.laser_gate.beamRatio, bottom: FLOOR_TOP }];
         }
-        return [{ left: obs.x - 3, right: obs.x + 3, top: CEIL_BOT, bottom: CEIL_BOT + PLAY_H * 0.52 }];
+        return [{ left: obs.x - 3, right: obs.x + 3, top: CEIL_BOT, bottom: CEIL_BOT + PLAY_H * OBSTACLE_BEHAVIOR.laser_gate.beamRatio }];
       case 'spike_wall': {
-        const GAP = P_SIZE + 18;
+        const GAP = P_SIZE + OBSTACLE_BEHAVIOR.spike_wall.gapPadding;
         if (obs.gapAtFloor) {
           // Gap at floor: player must be on floor — solid block occupies top portion
           return [{ left: obs.x, right: obs.x + obs.width, top: CEIL_BOT, bottom: FLOOR_TOP - GAP }];
@@ -807,12 +814,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       case 'floor_spikes': return { id, type: 'floor_spikes', x, width: SPIKE_W * ((def.spikeCount ?? 2) * 2) + 4, spikeCount: def.spikeCount ?? 2 };
       case 'ceiling_spikes': return { id, type: 'ceiling_spikes', x, width: SPIKE_W * ((def.spikeCount ?? 2) * 2) + 4, spikeCount: def.spikeCount ?? 2 };
       case 'moving_spike': {
-        const [minV, maxV] = def.moveVelocityRange ?? [65, 95];
+        const [minV, maxV] = def.moveVelocityRange ?? OBSTACLE_BEHAVIOR.moving_spike.defaultVelocityRange;
         return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: minV + spawnerRef.current.nextFloat() * (maxV - minV) };
       }
       case 'rotating_blade': return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-      case 'laser_gate': return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: def.laserCycleOn ?? 0.55, laserCycleOff: def.laserCycleOff ?? 0.75, laserFromFloor: spawnerRef.current.nextFloat() < 0.5 };
-      case 'spike_wall': return { id, type: 'spike_wall', x, width: 10, gapAtFloor: spawnerRef.current.nextFloat() < 0.5 };
+      case 'laser_gate': return { id, type: 'laser_gate', x: x + 2, width: OBSTACLE_BEHAVIOR.laser_gate.width, laserOn: false, telegraphing: true, laserTimer: OBSTACLE_BEHAVIOR.laser_gate.initialDelay, laserCycleOn: def.laserCycleOn ?? OBSTACLE_BEHAVIOR.laser_gate.defaultCycleOn, laserCycleOff: def.laserCycleOff ?? OBSTACLE_BEHAVIOR.laser_gate.defaultCycleOff, laserFromFloor: spawnerRef.current.nextFloat() < 0.5 };
+      case 'spike_wall': return { id, type: 'spike_wall', x, width: OBSTACLE_BEHAVIOR.spike_wall.width, gapAtFloor: spawnerRef.current.nextFloat() < 0.5 };
       default: return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
     }
   }
@@ -1354,7 +1361,7 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
     );
   }
   if (obs.type === 'spike_wall') {
-    const GAP = 26 + 18; // P_SIZE + 18 (matching hitbox)
+    const GAP = 26 + OBSTACLE_BEHAVIOR.spike_wall.gapPadding;
     const solidTop = obs.gapAtFloor ? ceilBot : ceilBot + GAP;
     const solidBot = obs.gapAtFloor ? floorTop - GAP : floorTop;
     const solidH = solidBot - solidTop;
@@ -1387,12 +1394,20 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
     );
   }
   if (obs.type === 'laser_gate') {
-    const beamH = (floorTop - ceilBot) * 0.52;
+    const beamH = (floorTop - ceilBot) * OBSTACLE_BEHAVIOR.laser_gate.beamRatio;
     const top = obs.laserFromFloor ? floorTop - beamH : ceilBot;
     const isOn = !!obs.laserOn;
+    const isTelegraph = !isOn && !!obs.telegraphing;
     const laserColor = isOn ? '#FF2266' : '#FF226633';
     return (
       <View pointerEvents="none">
+        {isTelegraph && (
+          <View style={{
+            position: 'absolute', left: obs.x - 7, top: top - 4,
+            width: 14, height: beamH + 8, borderRadius: 7,
+            borderWidth: 1.2, borderColor: '#FFAA33AA', backgroundColor: '#FFAA3318',
+          }} />
+        )}
         {/* Beam body */}
         <View style={{
           position: 'absolute', left: obs.x - 2, top,

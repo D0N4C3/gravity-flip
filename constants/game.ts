@@ -29,6 +29,41 @@ export const GAME = {
   ENV_CHANGE_INTERVAL: 28,
 };
 
+export type HazardObstacleType = 'moving_spike' | 'rotating_blade' | 'laser_gate' | 'spike_wall';
+
+export const OBSTACLE_BEHAVIOR = {
+  moving_spike: {
+    halfHeight: 17,
+    halfWidth: 11,
+    maxTravelRatio: 0.42,
+    defaultVelocityRange: [70, 105] as [number, number],
+  },
+  rotating_blade: {
+    radius: 21,
+    rotationSpeedDeg: 190,
+  },
+  laser_gate: {
+    width: 6,
+    beamRatio: 0.52,
+    telegraphWindow: 0.28,
+    defaultCycleOn: 0.55,
+    defaultCycleOff: 0.75,
+    initialDelay: 0.6,
+  },
+  spike_wall: {
+    width: 10,
+    gapPadding: 18,
+  },
+} as const;
+
+export const OBSTACLE_STAGE_WEIGHTS: Record<number, Partial<Record<HazardObstacleType, number>>> = {
+  1: { moving_spike: 0.12, rotating_blade: 0.08, laser_gate: 0.03, spike_wall: 0.03 },
+  2: { moving_spike: 0.32, rotating_blade: 0.28, laser_gate: 0.12, spike_wall: 0.12 },
+  3: { moving_spike: 0.58, rotating_blade: 0.56, laser_gate: 0.34, spike_wall: 0.30 },
+  4: { moving_spike: 0.76, rotating_blade: 0.72, laser_gate: 0.62, spike_wall: 0.56 },
+  5: { moving_spike: 0.9, rotating_blade: 0.9, laser_gate: 0.86, spike_wall: 0.82 },
+};
+
 export const BALANCING = {
   milestones: [50, 100, 200, 400, 600],
   economy: {
