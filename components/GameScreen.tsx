@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import COLORS from '@/constants/colors';
+import HudAssetIcon from '@/components/HudAssetIcon';
 import {
   SKINS, TRAILS, GAME, ENVIRONMENTS, ENV_ORDER, POWERUPS,
   PowerupType, EnvironmentId, ChallengeType, SCORE_MILESTONES, OBSTACLE_BEHAVIOR, OBSTACLE_STAGE_WEIGHTS,
@@ -1203,7 +1204,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         <View style={[styles.powerupHUD, { top: CEIL_BOT + WALL_T + 6 }]}>
           {activePowerups.map(pu => (
             <View key={pu.type} style={[styles.powerupPill, { borderColor: POWERUPS[pu.type].color, backgroundColor: `${POWERUPS[pu.type].color}12` }]}>
-              <Ionicons name={POWERUPS[pu.type].icon as any} size={11} color={POWERUPS[pu.type].color} />
+              <PowerupIcon type={pu.type} size={11} />
               {pu.durationLeftMs > 0 && (
                 <View style={[styles.powerupTimerBar, { width: 28 }]}>
                   <View style={[styles.powerupTimerFill, {
@@ -1280,6 +1281,15 @@ function PlayerBody({ skin, size, onFloor, velocity }: {
   );
 }
 
+
+
+function PowerupIcon({ type, size }: { type: PowerupType; size: number }) {
+  if (type === 'shield') return <HudAssetIcon name="powerup_shield" size={size} />;
+  if (type === 'slowmo') return <HudAssetIcon name="powerup_slowmo" size={size} />;
+  if (type === 'magnet') return <HudAssetIcon name="powerup_magnet" size={size} />;
+  return <Ionicons name={POWERUPS[type].icon as any} size={size} color={POWERUPS[type].color} />;
+}
+
 function PowerupPickupComp({ pu }: { pu: PowerupPickup }) {
   const cfg = POWERUPS[pu.type];
   const R = GAME.POWERUP_VISUAL_RADIUS;
@@ -1292,7 +1302,7 @@ function PowerupPickupComp({ pu }: { pu: PowerupPickup }) {
       alignItems: 'center', justifyContent: 'center',
       shadowColor: cfg.color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 10,
     }}>
-      <Ionicons name={cfg.icon as any} size={12} color={cfg.color} />
+      <PowerupIcon type={pu.type} size={12} />
     </View>
   );
 }

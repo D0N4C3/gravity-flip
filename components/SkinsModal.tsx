@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import COLORS from '@/constants/colors';
 import { SKINS, TRAILS } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
+import HudAssetIcon, { type HudAssetName } from '@/components/HudAssetIcon';
 
 interface Props {
   visible: boolean;
@@ -27,6 +28,20 @@ function SkinPreview({ skinId, size = 36 }: { skinId: string; size?: number }) {
       Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
     ])).start();
   }, []);
+  const skinAssetById: Record<string, HudAssetName> = {
+    default: 'character_default',
+    robot: 'character_default',
+    ninja: 'character_default',
+    neon_cube: 'character_default',
+    ghost: 'character_phantom',
+    glitch: 'character_legendary',
+  };
+  const skinAsset = skinAssetById[skin.id];
+
+  if (skinAsset) {
+    return <HudAssetIcon name={skinAsset} size={size} />;
+  }
+
   if (skin.shape === 'circle') {
     return (
       <Animated.View style={[styles.previewCircle, {
@@ -53,6 +68,18 @@ function SkinPreview({ skinId, size = 36 }: { skinId: string; size?: number }) {
 
 function TrailPreview({ trailId }: { trailId: string }) {
   const trail = TRAILS.find(t => t.id === trailId) || TRAILS[0];
+  const trailAssetById: Record<string, HudAssetName> = {
+    neon: 'trail_plasma',
+    fire: 'trail_fire',
+    glitch: 'trail_plasma',
+    rainbow: 'trail_prismatic',
+  };
+
+  const trailAsset = trailAssetById[trail.id];
+  if (trailAsset) {
+    return <HudAssetIcon name={trailAsset} size={40} />;
+  }
+
   return (
     <View style={styles.trailPreviewWrap}>
       {trail.colors.slice(0, 6).map((c, i) => (
