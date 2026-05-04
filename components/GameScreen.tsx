@@ -87,7 +87,7 @@ interface Popup {
 }
 
 interface GState {
-  phase: 'playing' | 'dead';
+  phase: 'playing' | 'dying' | 'dead';
   onFloor: boolean;
   playerY: number; playerVelocity: number;
   scaleX: number; scaleY: number;
@@ -121,6 +121,10 @@ interface GState {
   nearMissTimer: number;
   nearMissCount: number;
   deathSlowmo: number;
+  deathTransitionTimer: number;
+  deathFlash: number;
+  deathImpactX: number;
+  deathImpactY: number;
   // Environment
   envIndex: number;
   envFlashTimer: number;
@@ -229,6 +233,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     flipCount: 0, maxCombo: 1,
     trail: [], bursts: [], flipRings: [], flipTrails: [],
     nearMissTimer: 0, nearMissCount: 0, deathSlowmo: 0,
+    deathTransitionTimer: 0, deathFlash: 0, deathImpactX: 0, deathImpactY: 0,
     envIndex: 0, envFlashTimer: 0, survivalTime: 0,
     bgFar: [], bgMid: [], bgNear: [],
     popup: null, dangerFloor: 0, dangerCeil: 0,
@@ -247,6 +252,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const [score, setScore] = useState(0);
   const [renderTick, setRenderTick] = useState(0);
   const shakeAnim = useRef(new Animated.Value(0)).current;
+  const shakeAnimY = useRef(new Animated.Value(0)).current;
+  const deathFlashAnim = useRef(new Animated.Value(0)).current;
   const envFlashAnim = useRef(new Animated.Value(0)).current;
   const flipPulseAnim = useRef(new Animated.Value(1)).current;
   const popupAnim = useRef(new Animated.Value(0)).current;
@@ -307,11 +314,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     const rawDelta = Math.min((timestamp - lastTimeRef.current) / 1000, 0.075);
     lastTimeRef.current = timestamp;
     const g = gRef.current;
-    if (g.phase !== 'playing') return;
+    if (g.phase === 'dead') return;
 
     const powerEffects = getPowerupEffects(g.powerupState);
     const inSlowmo = powerEffects.speed < 1 || g.deathSlowmo > 0;
-    const slowFactor = g.deathSlowmo > 0 ? 0.12 : powerEffects.speed;
+    const deathSlowFactor = settings.reducedMotion ? 0.5 : 0.12;
+    const slowFactor = g.deathSlowmo > 0 ? deathSlowFactor : powerEffects.speed;
     const dt = rawDelta * slowFactor;
     const speedNorm = Math.min((g.speed - GAME.OBSTACLE_SPEED_INITIAL) / (GAME.OBSTACLE_SPEED_MAX - GAME.OBSTACLE_SPEED_INITIAL), 1);
 
@@ -622,18 +630,30 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
     if (died && !deadFiredRef.current) {
       deadFiredRef.current = true;
-      g.phase = 'dead';
+      g.phase = 'dying';
       g.comboStreak = 0;
-      g.deathSlowmo = 0.6;
+      g.deathSlowmo = 0.5;
+      g.deathTransitionTimer = settings.reducedMotion ? 0.25 : 0.7;
+      g.deathFlash = settings.reducedFlashes ? 0.16 : 0.4;
+      g.deathImpactX = P_X + P_SIZE / 2;
+      g.deathImpactY = g.playerY + P_SIZE / 2;
       if (settings.vibration) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, skin.color, 24);
+      spawnBurst(g, g.deathImpactX, g.deathImpactY, '#FFFFFF', settings.reducedMotion ? 10 : 16);
+      spawnBurst(g, g.deathImpactX, g.deathImpactY, COLORS.neonPink, settings.reducedMotion ? 12 : 36);
+      if (!settings.reducedMotion) {
+        Animated.sequence([
+          Animated.timing(shakeAnim, { toValue: 12, duration: 35, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: -12, duration: 35, useNativeDriver: true }),
+          Animated.timing(shakeAnimY, { toValue: 7, duration: 30, useNativeDriver: true }),
+          Animated.timing(shakeAnimY, { toValue: -7, duration: 30, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: 5, duration: 35, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: 0, duration: 35, useNativeDriver: true }),
+          Animated.timing(shakeAnimY, { toValue: 0, duration: 35, useNativeDriver: true }),
+        ]).start();
+      }
       Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: 12, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -12, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 8, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -5, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 2, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 35, useNativeDriver: true }),
+        Animated.timing(deathFlashAnim, { toValue: 1, duration: 70, useNativeDriver: true }),
+        Animated.timing(deathFlashAnim, { toValue: 0, duration: settings.reducedFlashes ? 160 : 320, useNativeDriver: true }),
       ]).start();
 
       const finalScore = scoreRef.current;
@@ -661,7 +681,14 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
           score: finalScore,
         });
         onDeath(finalScore, finalCoins, !g.reviveUsed);
-      }, 850);
+      }, Math.round(g.deathTransitionTimer * 1000) + 180);
+    }
+
+    if (g.phase === 'dying') {
+      g.deathTransitionTimer -= rawDelta;
+      g.deathSlowmo = Math.max(0, g.deathSlowmo - rawDelta);
+      g.deathFlash = Math.max(0, g.deathFlash - rawDelta * (settings.reducedFlashes ? 1.9 : 1.2));
+      if (g.deathTransitionTimer <= 0) g.phase = 'dead';
     }
 
     setRenderTick(t => t + 1);
@@ -859,7 +886,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const warnObs = g.obstacles.find(o => o.x > P_X && o.x < P_X + 260);
 
   return (
-    <Animated.View style={[styles.container, { backgroundColor: env.bgTop, transform: [{ translateX: shakeAnim }] }]}>
+    <Animated.View style={[styles.container, { backgroundColor: env.bgTop, transform: [{ translateX: shakeAnim }, { translateY: shakeAnimY }] }]}>
       <TouchableOpacity style={StyleSheet.absoluteFill} onPress={handleTap} activeOpacity={1} />
 
       {/* Environment transition flash */}
@@ -867,6 +894,17 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         style={[StyleSheet.absoluteFill, { backgroundColor: env.accentColor, opacity: envFlashAnim }]}
         pointerEvents="none"
       />
+
+      {/* Fatal flash overlay */}
+      {g.deathFlash > 0 && (
+        <Animated.View
+          style={[StyleSheet.absoluteFill, {
+            backgroundColor: '#FFFFFF',
+            opacity: deathFlashAnim.interpolate({ inputRange: [0, 1], outputRange: [0, g.deathFlash] }),
+          }]}
+          pointerEvents="none"
+        />
+      )}
 
       {/* Speed overlay */}
       {speedNorm > 0.1 && (
