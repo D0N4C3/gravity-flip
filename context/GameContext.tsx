@@ -36,6 +36,8 @@ export interface GameSettings {
   music: boolean;
   sfx: boolean;
   vibration: boolean;
+  reducedMotion: boolean;
+  reducedFlashes: boolean;
 }
 
 export interface ChallengeProgress {
@@ -120,7 +122,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [selectedSkinId, setSelectedSkinId] = useState('default');
   const [selectedTrailId, setSelectedTrailId] = useState('neon');
-  const [settings, setSettings] = useState<GameSettings>({ music: true, sfx: true, vibration: true });
+  const [settings, setSettings] = useState<GameSettings>({
+    music: true, sfx: true, vibration: true, reducedMotion: false, reducedFlashes: false,
+  });
   const [totalRuns, setTotalRuns] = useState(0);
   const [coins, setCoins] = useState(0);
   const [dailyChallenges, setDailyChallenges] = useState<ChallengeState>({
@@ -151,7 +155,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (data[STORAGE_KEYS.LEADERBOARD]) setLeaderboard(JSON.parse(data[STORAGE_KEYS.LEADERBOARD]!));
       if (data[STORAGE_KEYS.SELECTED_SKIN]) setSelectedSkinId(data[STORAGE_KEYS.SELECTED_SKIN]!);
       if (data[STORAGE_KEYS.SELECTED_TRAIL]) setSelectedTrailId(data[STORAGE_KEYS.SELECTED_TRAIL]!);
-      if (data[STORAGE_KEYS.SETTINGS]) setSettings(JSON.parse(data[STORAGE_KEYS.SETTINGS]!));
+      if (data[STORAGE_KEYS.SETTINGS]) {
+        setSettings(prev => ({ ...prev, ...JSON.parse(data[STORAGE_KEYS.SETTINGS]!) }));
+      }
       if (data[STORAGE_KEYS.TOTAL_RUNS]) setTotalRuns(parseInt(data[STORAGE_KEYS.TOTAL_RUNS]!, 10));
       if (data[STORAGE_KEYS.COINS]) setCoins(parseInt(data[STORAGE_KEYS.COINS]!, 10));
       if (data[STORAGE_KEYS.LIFETIME_STATS]) setLifetimeStats(JSON.parse(data[STORAGE_KEYS.LIFETIME_STATS]!));
