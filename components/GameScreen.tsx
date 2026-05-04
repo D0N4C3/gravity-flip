@@ -18,6 +18,7 @@ import {
 } from '@/constants/game';
 import { applyPowerup, consumeShieldHit, createPowerupManagerState, getActivePowerups, getPowerupEffects, POWERUP_DEFS, tickPowerups } from '@/game/powerups';
 import { useGame } from '@/context/GameContext';
+import { ChunkSpawner } from '@/game/generation/spawner';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -240,6 +241,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const lastTimeRef = useRef<number>(0);
   const isPausedRef = useRef(isPaused);
   const deadFiredRef = useRef(false);
+  const runSeedRef = useRef<number>((Date.now() ^ ((Math.random() * 0xffffffff) >>> 0)) >>> 0);
+  const spawnerRef = useRef<ChunkSpawner>(new ChunkSpawner(runSeedRef.current));
 
   const [score, setScore] = useState(0);
   const [renderTick, setRenderTick] = useState(0);
@@ -431,10 +434,15 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     // ── Spawn obstacles ────────────────────────────────────────────────────────
     g.nextObsTimer -= dt;
     if (g.nextObsTimer <= 0) {
-      const obs = spawnObstacle(g.totalTime, g.speed);
-      g.obstacles.push(obs);
+      const spawnEvents = spawnerRef.current.spawn({ elapsedSec: g.totalTime });
+      for (const ev of spawnEvents) {
+        g.obstacles.push(spawnObstacleFromChunk(ev.obstacle));
+      }
 
-      if (Math.random() < GAME.COIN_SPAWN_CHANCE) spawnCoins(obs, g);
+      if (Math.random() < GAME.COIN_SPAWN_CHANCE && spawnEvents.length) {
+        const anchor = g.obstacles[g.obstacles.length - 1];
+        if (anchor) spawnCoins(anchor, g);
+      }
       if (g.totalTime >= g.nextPowerupSpawnAt) { spawnPowerup(g); g.nextPowerupSpawnAt = g.totalTime + 10 + Math.random() * 10; }
 
       const baseInterval = 380 / g.speed;
@@ -764,40 +772,22 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
   }
 
-  function spawnObstacle(totalTime: number, speed: number): Obstacle {
+  function spawnObstacleFromChunk(def: import('@/game/generation/chunks').ChunkObstacleDef): Obstacle {
     const id = mkId(); const x = SW + 28;
-    if (totalTime < 8) {
-      return { id, type: Math.random() < 0.5 ? 'floor_spike' : 'ceiling_spike', x, width: SPIKE_W * 2 };
+    switch (def.type) {
+      case 'floor_spike': return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
+      case 'ceiling_spike': return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
+      case 'floor_spikes': return { id, type: 'floor_spikes', x, width: SPIKE_W * ((def.spikeCount ?? 2) * 2) + 4, spikeCount: def.spikeCount ?? 2 };
+      case 'ceiling_spikes': return { id, type: 'ceiling_spikes', x, width: SPIKE_W * ((def.spikeCount ?? 2) * 2) + 4, spikeCount: def.spikeCount ?? 2 };
+      case 'moving_spike': {
+        const [minV, maxV] = def.moveVelocityRange ?? [65, 95];
+        return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: minV + spawnerRef.current.nextFloat() * (maxV - minV) };
+      }
+      case 'rotating_blade': return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
+      case 'laser_gate': return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: def.laserCycleOn ?? 0.55, laserCycleOff: def.laserCycleOff ?? 0.75, laserFromFloor: spawnerRef.current.nextFloat() < 0.5 };
+      case 'spike_wall': return { id, type: 'spike_wall', x, width: 10, gapAtFloor: spawnerRef.current.nextFloat() < 0.5 };
+      default: return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
     }
-    if (totalTime < 20) {
-      const r = Math.random();
-      if (r < 0.35) return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
-      if (r < 0.7) return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
-      return { id, type: 'floor_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
-    }
-    if (totalTime < 35) {
-      const r = Math.random();
-      if (r < 0.18) return { id, type: 'floor_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
-      if (r < 0.36) return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
-      if (r < 0.54) return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
-      if (r < 0.72) return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
-      return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 55 + Math.random() * 40 };
-    }
-    if (totalTime < 55) {
-      const r = Math.random();
-      if (r < 0.2) return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
-      if (r < 0.4) return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
-      if (r < 0.58) return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 75 + Math.random() * 45 };
-      if (r < 0.76) return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-      return { id, type: Math.random() < 0.5 ? 'floor_spikes' : 'ceiling_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
-    }
-    const r = Math.random();
-    if (r < 0.12) return { id, type: 'spike_wall' as const, x, width: 10, gapAtFloor: Math.random() < 0.5 };
-    if (r < 0.24) return { id, type: 'laser_gate' as const, x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
-    if (r < 0.40) return { id, type: 'rotating_blade' as const, x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-    if (r < 0.56) return { id, type: 'moving_spike' as const, x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 95 + Math.random() * 55 };
-    if (r < 0.76) return { id, type: 'floor_spikes' as const, x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
-    return { id, type: 'ceiling_spikes' as const, x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
   }
 
   // ─── Tap handler ────────────────────────────────────────────────────────────
