@@ -1,4 +1,5 @@
 import { Dimensions } from 'react-native';
+import { POWERUP_DEFS } from '@/game/powerups';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -64,15 +65,13 @@ export const ENVIRONMENTS: Record<EnvironmentId, {
 
 export const ENV_ORDER: EnvironmentId[] = ['neon', 'cyber', 'lava', 'ice'];
 
-export type PowerupType = 'shield' | 'slowmo' | 'double_score' | 'magnet';
+export type { PowerupType } from '@/game/powerups';
 
-export const POWERUPS: Record<PowerupType, {
-  id: PowerupType; label: string; icon: string; color: string; duration: number;
-}> = {
-  shield: { id: 'shield', label: 'SHIELD', icon: 'shield-checkmark', color: '#00F5FF', duration: 0 },
-  slowmo: { id: 'slowmo', label: 'SLOW-MO', icon: 'timer-outline', color: '#FF9900', duration: 5 },
-  double_score: { id: 'double_score', label: '2× SCORE', icon: 'star', color: '#FFE600', duration: 10 },
-  magnet: { id: 'magnet', label: 'MAGNET', icon: 'magnet', color: '#FF44CC', duration: 8 },
+export const POWERUPS = {
+  shield: { ...POWERUP_DEFS.shield, duration: POWERUP_DEFS.shield.durationMs / 1000 },
+  slowmo: { ...POWERUP_DEFS.slowmo, duration: POWERUP_DEFS.slowmo.durationMs / 1000 },
+  double_score: { ...POWERUP_DEFS.double_score, duration: POWERUP_DEFS.double_score.durationMs / 1000 },
+  magnet: { ...POWERUP_DEFS.magnet, duration: POWERUP_DEFS.magnet.durationMs / 1000 },
 };
 
 export const SKINS = [

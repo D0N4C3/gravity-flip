@@ -5,6 +5,7 @@ import {
   DailyChallenge, ChallengeType, LifetimeStats,
   UPGRADES, PlayerUpgrades, DEFAULT_UPGRADES,
 } from '@/constants/game';
+import { POWERUP_DEFS } from '@/game/powerups';
 
 const STORAGE_KEYS = {
   BEST_SCORE: 'gf_best_score',
@@ -94,6 +95,7 @@ interface GameContextValue {
   recordRunStats: (stats: RunStats) => string[];
   claimDailyReward: () => number;
   upgradeAbility: (id: keyof PlayerUpgrades) => boolean;
+  powerupDefinitions: typeof POWERUP_DEFS;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -359,6 +361,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dailyRewardStreak, dailyRewardClaimed, upgrades,
     submitScore, selectSkin, selectTrail, updateSettings, getSkinById,
     addCoins, spendCoins, updateChallengeProgress, claimChallenge, recordRunStats, claimDailyReward, upgradeAbility,
+    powerupDefinitions: POWERUP_DEFS,
   }), [bestScore, leaderboard, selectedSkinId, selectedTrailId, settings, totalRuns,
     coins, unlockedSkins, unlockedTrails, dailyChallenges, lifetimeStats, achievedIds,
     dailyRewardStreak, dailyRewardClaimed, upgrades]);

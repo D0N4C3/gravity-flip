@@ -16,6 +16,7 @@ import {
   SKINS, TRAILS, GAME, ENVIRONMENTS, ENV_ORDER, POWERUPS,
   PowerupType, EnvironmentId, ChallengeType, SCORE_MILESTONES,
 } from '@/constants/game';
+import { applyPowerup, consumeShieldHit, createPowerupManagerState, getActivePowerups, getPowerupEffects, POWERUP_DEFS, tickPowerups } from '@/game/powerups';
 import { useGame } from '@/context/GameContext';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -97,11 +98,8 @@ interface GState {
   reviveUsed: boolean;
   flipCooldown: number;
   // Power-ups
-  powerupShieldActive: boolean;
-  shieldHitsRemaining: number;
-  powerupSlowmoTime: number;
-  powerupDoubleScoreTime: number;
-  powerupMagnetTime: number;
+  powerupState: ReturnType<typeof createPowerupManagerState>;
+  nextPowerupSpawnAt: number;
   powerupPickups: PowerupPickup[];
   // Coins
   coins: CoinPickup[];
@@ -221,8 +219,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     nextObsTimer: 1.5, scoreTimer: 1,
     totalTime: 0, reviveUsed: false,
     flipCooldown: 0,
-    powerupShieldActive: false, shieldHitsRemaining: 1,
-    powerupSlowmoTime: 0, powerupDoubleScoreTime: 0, powerupMagnetTime: 0,
+    powerupState: createPowerupManagerState(),
+    nextPowerupSpawnAt: 10 + Math.random() * 10,
     powerupPickups: [], coins: [], coinsCollected: 0,
     comboStreak: 0, comboDisplayTimer: 0,
     perfectFlipTimer: 0, perfectFlipCount: 0,
@@ -279,7 +277,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       // Grant a 2-second shield so the player isn't instantly re-killed
       g.phase = 'playing';
       g.reviveUsed = true;
-      g.powerupShieldActive = true;
+      applyPowerup(g.powerupState, 'shield', Date.now(), upgrades.shield_strength);
       g.deathSlowmo = 0;
       deadFiredRef.current = false;
       isPausedRef.current = false;
@@ -306,8 +304,9 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     const g = gRef.current;
     if (g.phase !== 'playing') return;
 
-    const inSlowmo = g.powerupSlowmoTime > 0 || g.deathSlowmo > 0;
-    const slowFactor = inSlowmo ? (g.deathSlowmo > 0 ? 0.12 : 0.32) : 1;
+    const powerEffects = getPowerupEffects(g.powerupState);
+    const inSlowmo = powerEffects.speed < 1 || g.deathSlowmo > 0;
+    const slowFactor = g.deathSlowmo > 0 ? 0.12 : powerEffects.speed;
     const dt = rawDelta * slowFactor;
     const speedNorm = Math.min((g.speed - GAME.OBSTACLE_SPEED_INITIAL) / (GAME.OBSTACLE_SPEED_MAX - GAME.OBSTACLE_SPEED_INITIAL), 1);
 
@@ -412,10 +411,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     g.powerupPickups = g.powerupPickups.filter(p => p.x + 32 > 0);
 
     // ── Magnet attraction ──────────────────────────────────────────────────────
-    if (g.powerupMagnetTime > 0) {
+    if (g.powerupState.active.magnet) {
       const px = P_X + P_SIZE / 2;
       const py = g.playerY + P_SIZE / 2;
-      const effectiveMagnetRange = MAGNET_RANGE + upgrades.magnet_radius * 55;
+      const effectiveMagnetRange = (MAGNET_RANGE + upgrades.magnet_radius * 55) * powerEffects.magnetRadius;
       for (const coin of g.coins) {
         const dx = px - coin.x;
         const dy = py - coin.y;
@@ -434,7 +433,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       g.obstacles.push(obs);
 
       if (Math.random() < GAME.COIN_SPAWN_CHANCE) spawnCoins(obs, g);
-      if (Math.random() < GAME.POWERUP_SPAWN_CHANCE) spawnPowerup(g);
+      if (g.totalTime >= g.nextPowerupSpawnAt) { spawnPowerup(g); g.nextPowerupSpawnAt = g.totalTime + 10 + Math.random() * 10; }
 
       const baseInterval = 380 / g.speed;
       g.nextObsTimer = Math.max(0.95, baseInterval);
@@ -445,7 +444,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     if (g.scoreTimer <= 0) {
       g.scoreTimer = 1;
       const comboMult = getComboMultiplier(g.comboStreak);
-      const doubleMult = g.powerupDoubleScoreTime > 0 ? 2 : 1;
+      const doubleMult = powerEffects.score;
       const upgradeBonus = upgrades.score_multiplier;
       const gained = comboMult * doubleMult + upgradeBonus;
       scoreRef.current += gained;
@@ -490,10 +489,9 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
     if (g.envFlashTimer > 0) g.envFlashTimer -= rawDelta;
 
+    tickPowerups(g.powerupState, Date.now());
+
     // ── Power-up timers ───────────────────────────────────────────────────────
-    if (g.powerupSlowmoTime > 0) g.powerupSlowmoTime -= rawDelta;
-    if (g.powerupDoubleScoreTime > 0) g.powerupDoubleScoreTime -= rawDelta;
-    if (g.powerupMagnetTime > 0) g.powerupMagnetTime -= rawDelta;
 
     // ── Perfect flip timer ────────────────────────────────────────────────────
     if (g.perfectFlipTimer > 0) {
@@ -544,11 +542,9 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       const hitboxes = getHitboxes(obs);
       for (const hb of hitboxes) {
         if (rectsOverlap(pH, hb)) {
-          if (g.powerupShieldActive) {
-            g.shieldHitsRemaining -= 1;
-            if (g.shieldHitsRemaining <= 0) g.powerupShieldActive = false;
+          if (g.powerupState.active.shield) {
+            const hitsLeft = consumeShieldHit(g.powerupState);
             spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, COLORS.neonCyan, 10);
-            const hitsLeft = g.shieldHitsRemaining;
             showPopup(g, hitsLeft > 0 ? `SHIELD BLOCK (${hitsLeft})` : 'SHIELD BREAK', COLORS.neonCyan, 'sm');
             if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           } else {
@@ -681,15 +677,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     return '';
   }
 
-  function activatePowerup(type: PowerupType, g: GState) {
-    if (type === 'shield') {
-      g.powerupShieldActive = true;
-      g.shieldHitsRemaining = 1 + upgrades.shield_strength;
-    }
-    else if (type === 'slowmo') g.powerupSlowmoTime = POWERUPS.slowmo.duration;
-    else if (type === 'double_score') g.powerupDoubleScoreTime = POWERUPS.double_score.duration;
-    else if (type === 'magnet') g.powerupMagnetTime = POWERUPS.magnet.duration;
-  }
+  function activatePowerup(type: PowerupType, g: GState) { applyPowerup(g.powerupState, type, Date.now(), upgrades.shield_strength); }
 
   function spawnBurst(g: GState, x: number, y: number, color: string, count: number) {
     for (let i = 0; i < count; i++) {
@@ -870,14 +858,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const comboLabel = getComboLabel(g.comboStreak);
   const canFlip = g.flipCooldown <= 0;
 
-  const activePowerups = useMemo(() => {
-    const list: { type: PowerupType; timeLeft?: number }[] = [];
-    if (g.powerupShieldActive) list.push({ type: 'shield' });
-    if (g.powerupSlowmoTime > 0) list.push({ type: 'slowmo', timeLeft: g.powerupSlowmoTime });
-    if (g.powerupDoubleScoreTime > 0) list.push({ type: 'double_score', timeLeft: g.powerupDoubleScoreTime });
-    if (g.powerupMagnetTime > 0) list.push({ type: 'magnet', timeLeft: g.powerupMagnetTime });
-    return list;
-  }, [renderTick]);
+  const activePowerups = useMemo(() => getActivePowerups(g.powerupState, Date.now()), [renderTick]);
 
   // Find nearest upcoming obstacle for warning
   const warnObs = g.obstacles.find(o => o.x > P_X && o.x < P_X + 260);
@@ -901,7 +882,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       )}
 
       {/* Magnet aura */}
-      {g.powerupMagnetTime > 0 && (
+      {g.powerupState.active.magnet && (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: POWERUPS.magnet.color, opacity: 0.03 }]} pointerEvents="none" />
       )}
 
@@ -1085,7 +1066,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       ))}
 
       {/* Shield orb */}
-      {g.powerupShieldActive && (
+      {g.powerupState.active.shield && (
         <View pointerEvents="none" style={{
           position: 'absolute', left: P_X - 9, top: g.playerY - 9,
           width: P_SIZE + 18, height: P_SIZE + 18, borderRadius: (P_SIZE + 18) / 2,
@@ -1096,11 +1077,11 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       )}
 
       {/* Magnet field ring */}
-      {g.powerupMagnetTime > 0 && (
+      {g.powerupState.active.magnet && (
         <View pointerEvents="none" style={{
           position: 'absolute',
-          left: P_X + P_SIZE / 2 - MAGNET_RANGE, top: g.playerY + P_SIZE / 2 - MAGNET_RANGE,
-          width: MAGNET_RANGE * 2, height: MAGNET_RANGE * 2, borderRadius: MAGNET_RANGE,
+          left: P_X + P_SIZE / 2 - MAGNET_RANGE * getPowerupEffects(g.powerupState).magnetRadius, top: g.playerY + P_SIZE / 2 - MAGNET_RANGE * getPowerupEffects(g.powerupState).magnetRadius,
+          width: MAGNET_RANGE * 2 * getPowerupEffects(g.powerupState).magnetRadius, height: MAGNET_RANGE * 2 * getPowerupEffects(g.powerupState).magnetRadius, borderRadius: MAGNET_RANGE * getPowerupEffects(g.powerupState).magnetRadius,
           borderWidth: 1, borderColor: POWERUPS.magnet.color,
           opacity: 0.15,
         }} />
@@ -1183,10 +1164,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
           {activePowerups.map(pu => (
             <View key={pu.type} style={[styles.powerupPill, { borderColor: POWERUPS[pu.type].color, backgroundColor: `${POWERUPS[pu.type].color}12` }]}>
               <Ionicons name={POWERUPS[pu.type].icon as any} size={11} color={POWERUPS[pu.type].color} />
-              {pu.timeLeft !== undefined && (
+              {pu.durationLeftMs > 0 && (
                 <View style={[styles.powerupTimerBar, { width: 28 }]}>
                   <View style={[styles.powerupTimerFill, {
-                    width: `${(pu.timeLeft / POWERUPS[pu.type].duration) * 100}%`,
+                    width: `${(pu.durationLeftMs / POWERUP_DEFS[pu.type].durationMs) * 100}%`,
                     backgroundColor: POWERUPS[pu.type].color,
                   }]} />
                 </View>
