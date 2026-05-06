@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import COLORS from '@/constants/colors';
 import { SKINS, TRAILS } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
-import { CharacterSvg } from '@/components/GameSvgs';
+import HudAssetIcon, { type HudAssetName } from '@/components/HudAssetIcon';
 
 interface Props {
   visible: boolean;
@@ -18,6 +18,24 @@ interface Props {
 }
 
 type Tab = 'skins' | 'trails';
+
+const SKIN_HUD_ASSET_BY_ID: Record<string, HudAssetName> = {
+  default: 'skin_runner',
+  robot: 'skin_robot',
+  ninja: 'skin_ninja',
+  neon_cube: 'skin_neon_cube',
+  ghost: 'skin_ghost',
+  glitch: 'skin_glitch',
+};
+
+const TRAIL_HUD_ASSET_BY_ID: Record<string, HudAssetName> = {
+  neon: 'trail_neon_pulse',
+  fire: 'trail_fire_blaze',
+  ice: 'trail_ice_crystal',
+  glitch: 'trail_glitch_wave',
+  gold: 'trail_gold_rush',
+  rainbow: 'trail_rainbow',
+};
 
 function SkinPreview({ skinId, size = 42 }: { skinId: string; size?: number }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -29,23 +47,15 @@ function SkinPreview({ skinId, size = 42 }: { skinId: string; size?: number }) {
   }, []);
   return (
     <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-      <CharacterSvg skinId={skinId} size={size} />
+      <HudAssetIcon name={SKIN_HUD_ASSET_BY_ID[skinId]} size={size} />
     </Animated.View>
   );
 }
 
 function TrailPreview({ trailId }: { trailId: string }) {
-  const trail = TRAILS.find(t => t.id === trailId) || TRAILS[0];
   return (
     <View style={styles.trailPreviewWrap}>
-      {trail.colors.slice(0, 6).map((c, i) => (
-        <View key={i} style={[styles.trailStreak, {
-          backgroundColor: c,
-          width: 22 - i * 2,
-          opacity: 1 - i * 0.13,
-          shadowColor: c,
-        }]} />
-      ))}
+      <HudAssetIcon name={TRAIL_HUD_ASSET_BY_ID[trailId]} size={42} />
     </View>
   );
 }
@@ -135,11 +145,7 @@ export default function SkinsModal({ visible, onClose }: Props) {
                           ]}
                         >
                           <View style={styles.skinPreviewArea}>
-                            {isUnlocked ? <SkinPreview skinId={skin.id} size={40} /> : (
-                              <View style={styles.lockedIcon}>
-                                <Ionicons name="lock-closed" size={20} color={COLORS.textMuted} />
-                              </View>
-                            )}
+                            <SkinPreview skinId={skin.id} size={40} />
                           </View>
                           <Text style={[styles.skinName, !isUnlocked && styles.skinNameLocked]}>
                             {skin.name.toUpperCase()}
@@ -190,13 +196,7 @@ export default function SkinsModal({ visible, onClose }: Props) {
                           ]}
                         >
                           <View style={styles.skinPreviewArea}>
-                            {isUnlocked ? (
-                              <TrailPreview trailId={trail.id} />
-                            ) : (
-                              <View style={styles.lockedIcon}>
-                                <Ionicons name="lock-closed" size={20} color={COLORS.textMuted} />
-                              </View>
-                            )}
+                            <TrailPreview trailId={trail.id} />
                           </View>
                           <Text style={[styles.skinName, !isUnlocked && styles.skinNameLocked]}>
                             {trail.name.toUpperCase()}

@@ -3,9 +3,27 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SKINS, TRAILS, POWERUPS, UPGRADES } from '@/constants/game';
-import { CharacterSvg } from '@/components/GameSvgs';
+import HudAssetIcon, { type HudAssetName } from '@/components/HudAssetIcon';
 import { useGame } from '@/context/GameContext';
 import COLORS from '@/constants/colors';
+
+const SKIN_HUD_ASSET_BY_ID: Record<string, HudAssetName> = {
+  default: 'skin_runner',
+  robot: 'skin_robot',
+  ninja: 'skin_ninja',
+  neon_cube: 'skin_neon_cube',
+  ghost: 'skin_ghost',
+  glitch: 'skin_glitch',
+};
+
+const TRAIL_HUD_ASSET_BY_ID: Record<string, HudAssetName> = {
+  neon: 'trail_neon_pulse',
+  fire: 'trail_fire_blaze',
+  ice: 'trail_ice_crystal',
+  glitch: 'trail_glitch_wave',
+  gold: 'trail_gold_rush',
+  rainbow: 'trail_rainbow',
+};
 
 export default function ShopModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { shopItems, coins, gems, buyShopItem, buyConsumable, buyBoost } = useGame();
@@ -16,8 +34,8 @@ export default function ShopModal({ visible, onClose }: { visible: boolean; onCl
       <View style={styles.sheet}><LinearGradient colors={['#0A1628', '#060E1A']} style={styles.inner}>
         <Text style={styles.title}>SHOP · {coins} coins · {gems} gems</Text>
         <View style={styles.tabs}>{(['skins','trails','powerups','boosts'] as const).map(t => <TouchableOpacity key={t} onPress={() => setTab(t)}><Text style={[styles.tab, tab===t && styles.active]}>{t.toUpperCase()}</Text></TouchableOpacity>)}</View>
-        <ScrollView>{tab==='skins' && SKINS.map(s => <Row key={s.id} name={s.name} owned={!!item(s.id)?.owned} cost={item(s.id)?.costCoins||0} gems={item(s.id)?.costGems} onBuy={() => buyShopItem(s.id)} preview={<CharacterSvg skinId={s.id} size={34} />} />)}
-          {tab==='trails' && TRAILS.map(t => <Row key={t.id} name={t.name} owned={!!item(t.id)?.owned} cost={item(t.id)?.costCoins||0} gems={item(t.id)?.costGems} onBuy={() => buyShopItem(t.id)} preview={<View style={{flexDirection:'row',gap:3}}>{t.colors.slice(0,4).map((c,i)=><View key={i} style={{width:16-i*2,height:5,backgroundColor:c,borderRadius:3}}/>)}</View>} />)}
+        <ScrollView>{tab==='skins' && SKINS.map(s => <Row key={s.id} name={s.name} owned={!!item(s.id)?.owned} cost={item(s.id)?.costCoins||0} gems={item(s.id)?.costGems} onBuy={() => buyShopItem(s.id)} preview={<HudAssetIcon name={SKIN_HUD_ASSET_BY_ID[s.id]} size={34} />} />)}
+          {tab==='trails' && TRAILS.map(t => <Row key={t.id} name={t.name} owned={!!item(t.id)?.owned} cost={item(t.id)?.costCoins||0} gems={item(t.id)?.costGems} onBuy={() => buyShopItem(t.id)} preview={<HudAssetIcon name={TRAIL_HUD_ASSET_BY_ID[t.id]} size={34} />} />)}
           {tab==='powerups' && Object.values(POWERUPS).map(p => <Row key={p.id} name={`${p.label} x1`} owned={false} stack={item(p.id)?.stackCount} cost={80} gems={2} onBuy={() => buyConsumable(p.id,1)} preview={<Ionicons name={p.icon as any} size={18} color={p.color} />} />)}
           {tab==='boosts' && UPGRADES.map(b => <Row key={b.id} name={b.name} owned={!!item(b.id)?.owned} cost={300} gems={8} onBuy={() => buyBoost(b.id)} preview={<Ionicons name={b.icon as any} size={18} color={COLORS.neonCyan} />} />)}
         </ScrollView>
