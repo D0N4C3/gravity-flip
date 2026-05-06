@@ -5,7 +5,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 export const SCREEN = { WIDTH: SCREEN_WIDTH, HEIGHT: SCREEN_HEIGHT };
 
 export const GAME = {
-  PLAYER_SIZE: 46,
+  PLAYER_SIZE: 42,
   PLAYER_X: 90,
   WALL_THICKNESS: 28,
   HEADER_HEIGHT: 80,

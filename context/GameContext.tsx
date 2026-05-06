@@ -12,11 +12,12 @@ const STORAGE_KEYS = {
   DAILY_CHALLENGE_DATE: 'gf_daily_challenge_date', DAILY_PROGRESS: 'gf_daily_progress', LIFETIME_STATS: 'gf_lifetime_stats', ACHIEVED_IDS: 'gf_achieved_ids',
   DAILY_REWARD_STREAK: 'gf_daily_reward_streak', DAILY_REWARD_DATE: 'gf_daily_reward_date', UPGRADES: 'gf_upgrades', OWNED_SKINS: 'gf_owned_skins', OWNED_TRAILS: 'gf_owned_trails',
   POWERUP_INVENTORY: 'gf_powerup_inventory', BOOST_INVENTORY: 'gf_boost_inventory', SKIN_FRAGMENTS: 'gf_skin_fragments', MILESTONE_CLAIMED_IDS: 'gf_milestone_claimed_ids',
+  PLAYER_NAME: 'gf_player_name',
 };
 
 type ShopItemType = 'skin' | 'trail' | 'powerup' | 'boost';
 export interface ShopItem { id: string; type: ShopItemType; costCoins: number; costGems?: number; owned: boolean; stackCount?: number }
-export interface LeaderboardEntry { id: string; score: number; date: string; skinId: string; }
+export interface LeaderboardEntry { id: string; score: number; date: string; skinId: string; playerName: string; }
 export interface GameSettings { music: boolean; sfx: boolean; vibration: boolean; }
 export interface ChallengeProgress { [challengeId: string]: number; }
 export interface ChallengeState { challenges: DailyChallenge[]; progress: ChallengeProgress; claimed: string[]; }
@@ -26,9 +27,11 @@ interface RunStats { flips: number; survivalSeconds: number; coinsEarned: number
 
 interface GameContextValue {
   bestScore: number; leaderboard: LeaderboardEntry[]; selectedSkinId: string; selectedTrailId: string; settings: GameSettings; totalRuns: number;
+  playerName: string;
   coins: number; gems: number; unlockedSkins: string[]; unlockedTrails: string[]; shopItems: ShopItem[]; powerupInventory: Record<string, number>; boostInventory: string[];
   dailyChallenges: ChallengeState; lifetimeStats: LifetimeStats; achievedIds: string[]; dailyRewardStreak: number; dailyRewardClaimed: boolean; upgrades: PlayerUpgrades; milestoneClaimedIds: string[];
   submitScore: (score: number) => Promise<void>; selectSkin: (skinId: string) => void; selectTrail: (trailId: string) => void; updateSettings: (settings: Partial<GameSettings>) => void;
+  setPlayerName: (name: string) => void;
   getSkinById: (id: string) => typeof SKINS[0]; addCoins: (amount: number) => void; spendCoins: (amount: number) => boolean; addGems: (amount: number) => void; spendGems: (amount: number) => boolean;
   buyShopItem: (itemId: string) => boolean; buyConsumable: (powerupId: string, quantity: number) => boolean; buyBoost: (boostId: string) => boolean;
   updateChallengeProgress: (type: ChallengeType, value: number) => void; claimChallenge: (challengeId: string) => number; recordRunStats: (stats: RunStats) => string[]; claimDailyReward: () => number; upgradeAbility: (id: keyof PlayerUpgrades) => boolean;
@@ -48,6 +51,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [ownedTrails, setOwnedTrails] = useState<string[]>(['neon']); const [powerupInventory, setPowerupInventory] = useState<Record<string, number>>({}); const [boostInventory, setBoostInventory] = useState<string[]>([]);
   const [skinFragments, setSkinFragments] = useState<SkinFragmentProgress>({});
   const [milestoneClaimedIds, setMilestoneClaimedIds] = useState<string[]>([]);
+  const [playerName, setPlayerNameState] = useState('');
 
   useEffect(() => { loadData(); }, []);
   async function loadData() { try { const keys = Object.values(STORAGE_KEYS); const values = await AsyncStorage.multiGet(keys); const data: Record<string, string | null> = {}; values.forEach(([k, v]) => { data[k] = v; });
@@ -59,6 +63,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (data[STORAGE_KEYS.OWNED_SKINS]) setOwnedSkins(JSON.parse(data[STORAGE_KEYS.OWNED_SKINS]!)); if (data[STORAGE_KEYS.OWNED_TRAILS]) setOwnedTrails(JSON.parse(data[STORAGE_KEYS.OWNED_TRAILS]!));
     if (data[STORAGE_KEYS.POWERUP_INVENTORY]) setPowerupInventory(JSON.parse(data[STORAGE_KEYS.POWERUP_INVENTORY]!)); if (data[STORAGE_KEYS.BOOST_INVENTORY]) setBoostInventory(JSON.parse(data[STORAGE_KEYS.BOOST_INVENTORY]!)); if (data[STORAGE_KEYS.SKIN_FRAGMENTS]) setSkinFragments(JSON.parse(data[STORAGE_KEYS.SKIN_FRAGMENTS]!));
     if (data[STORAGE_KEYS.MILESTONE_CLAIMED_IDS]) setMilestoneClaimedIds(JSON.parse(data[STORAGE_KEYS.MILESTONE_CLAIMED_IDS]!));
+    if (data[STORAGE_KEYS.PLAYER_NAME]) setPlayerNameState(data[STORAGE_KEYS.PLAYER_NAME]!);
     const today = getTodayDateStr();
     if (data[STORAGE_KEYS.DAILY_CHALLENGE_DATE] === today && data[STORAGE_KEYS.DAILY_CHALLENGES]) { const challenges = JSON.parse(data[STORAGE_KEYS.DAILY_CHALLENGES]!); const progress = data[STORAGE_KEYS.DAILY_PROGRESS] ? JSON.parse(data[STORAGE_KEYS.DAILY_PROGRESS]!) : {}; setDailyChallenges({ challenges, progress: progress.progress || {}, claimed: progress.claimed || [] }); }
     else { const newChallenges = pickDailyChallenges(); await AsyncStorage.setItem(STORAGE_KEYS.DAILY_CHALLENGE_DATE, today); await AsyncStorage.setItem(STORAGE_KEYS.DAILY_CHALLENGES, JSON.stringify(newChallenges)); await AsyncStorage.setItem(STORAGE_KEYS.DAILY_PROGRESS, JSON.stringify({ progress: {}, claimed: [] })); setDailyChallenges({ challenges: newChallenges, progress: {}, claimed: [] }); }
@@ -131,7 +136,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (boostInventory.includes(boostId)) return true; if (!spendCoins(300) || !spendGems(8)) return false;
     const next = [...boostInventory, boostId]; setBoostInventory(next); AsyncStorage.setItem(STORAGE_KEYS.BOOST_INVENTORY, JSON.stringify(next)); return true;
   };
-  const submitScore = async (score: number) => { const newRuns = totalRuns + 1; setTotalRuns(newRuns); AsyncStorage.setItem(STORAGE_KEYS.TOTAL_RUNS, String(newRuns)); const newEntry: LeaderboardEntry = { id: Date.now().toString(), score, date: new Date().toLocaleDateString(), skinId: selectedSkinId }; const newLeaderboard = [...leaderboard, newEntry].sort((a, b) => b.score - a.score).slice(0, 20); setLeaderboard(newLeaderboard); AsyncStorage.setItem(STORAGE_KEYS.LEADERBOARD, JSON.stringify(newLeaderboard)); if (score > bestScore) { setBestScore(score); AsyncStorage.setItem(STORAGE_KEYS.BEST_SCORE, String(score)); } };
+  const submitScore = async (score: number) => { const newRuns = totalRuns + 1; setTotalRuns(newRuns); AsyncStorage.setItem(STORAGE_KEYS.TOTAL_RUNS, String(newRuns)); const newEntry: LeaderboardEntry = { id: Date.now().toString(), score, date: new Date().toLocaleDateString(), skinId: selectedSkinId, playerName: playerName || 'Pilot' }; const newLeaderboard = [...leaderboard, newEntry].sort((a, b) => b.score - a.score).slice(0, 20); setLeaderboard(newLeaderboard); AsyncStorage.setItem(STORAGE_KEYS.LEADERBOARD, JSON.stringify(newLeaderboard)); if (score > bestScore) { setBestScore(score); AsyncStorage.setItem(STORAGE_KEYS.BEST_SCORE, String(score)); } };
+  const setPlayerName = (name: string) => { const safeName = name.trim().slice(0, 18); setPlayerNameState(safeName); AsyncStorage.setItem(STORAGE_KEYS.PLAYER_NAME, safeName); };
   const selectSkin = (skinId: string) => { setSelectedSkinId(skinId); AsyncStorage.setItem(STORAGE_KEYS.SELECTED_SKIN, skinId); };
   const selectTrail = (trailId: string) => { setSelectedTrailId(trailId); AsyncStorage.setItem(STORAGE_KEYS.SELECTED_TRAIL, trailId); };
   const updateSettings = (newSettings: Partial<GameSettings>) => { const updated = { ...settings, ...newSettings }; setSettings(updated); AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated)); };
@@ -166,7 +172,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const pendingMilestones = useMemo(() => MILESTONE_REWARDS.filter(m => !milestoneClaimedIds.includes(m.id)), [milestoneClaimedIds]);
 
-  const value = useMemo(() => ({ bestScore, leaderboard, selectedSkinId, selectedTrailId, settings, totalRuns, coins, gems, unlockedSkins, unlockedTrails, shopItems, powerupInventory, boostInventory, dailyChallenges, lifetimeStats, achievedIds, dailyRewardStreak, dailyRewardClaimed, upgrades, milestoneClaimedIds, submitScore, selectSkin, selectTrail, updateSettings, getSkinById, addCoins, spendCoins, addGems, spendGems, buyShopItem, buyConsumable, buyBoost, updateChallengeProgress, claimChallenge, recordRunStats, claimDailyReward, upgradeAbility, pendingMilestones }), [bestScore, leaderboard, selectedSkinId, selectedTrailId, settings, totalRuns, coins, gems, unlockedSkins, unlockedTrails, shopItems, powerupInventory, boostInventory, dailyChallenges, lifetimeStats, achievedIds, dailyRewardStreak, dailyRewardClaimed, upgrades, milestoneClaimedIds, pendingMilestones]);
+  const value = useMemo(() => ({ bestScore, leaderboard, selectedSkinId, selectedTrailId, settings, totalRuns, playerName, coins, gems, unlockedSkins, unlockedTrails, shopItems, powerupInventory, boostInventory, dailyChallenges, lifetimeStats, achievedIds, dailyRewardStreak, dailyRewardClaimed, upgrades, milestoneClaimedIds, submitScore, selectSkin, selectTrail, updateSettings, setPlayerName, getSkinById, addCoins, spendCoins, addGems, spendGems, buyShopItem, buyConsumable, buyBoost, updateChallengeProgress, claimChallenge, recordRunStats, claimDailyReward, upgradeAbility, pendingMilestones }), [bestScore, leaderboard, selectedSkinId, selectedTrailId, settings, totalRuns, playerName, coins, gems, unlockedSkins, unlockedTrails, shopItems, powerupInventory, boostInventory, dailyChallenges, lifetimeStats, achievedIds, dailyRewardStreak, dailyRewardClaimed, upgrades, milestoneClaimedIds, pendingMilestones]);
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
 export function useGame() { const ctx = useContext(GameContext); if (!ctx) throw new Error('useGame must be used within GameProvider'); return ctx; }
