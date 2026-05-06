@@ -1,7 +1,14 @@
-import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import { Platform } from 'react-native';
 
 export type SfxType = 'flip' | 'nearMiss' | 'death' | 'pickup' | 'uiClick';
+
+type ExpoAvModule = typeof import('expo-av');
+
+type SoundInstance = {
+  setStatusAsync(status: Record<string, unknown>): Promise<unknown>;
+  replayAsync(): Promise<unknown>;
+  unloadAsync(): Promise<unknown>;
+};
 
 const MUSIC_INTENSITY_STAGES = [
   { stageSeconds: 0, rate: 0.96, volume: 0.42 },
@@ -23,13 +30,33 @@ const AUDIO_ASSETS = {
 
 class AudioController {
   private initialized = false;
+  private available = true;
   private musicEnabled = true;
   private sfxEnabled = true;
-  private musicSound: Audio.Sound | null = null;
-  private sfxSounds: Partial<Record<SfxType, Audio.Sound>> = {};
+  private musicSound: SoundInstance | null = null;
+  private sfxSounds: Partial<Record<SfxType, SoundInstance>> = {};
+  private expoAvModule: ExpoAvModule | null = null;
+
+  private async loadExpoAv() {
+    if (this.expoAvModule || !this.available) return this.expoAvModule;
+
+    try {
+      this.expoAvModule = await import('expo-av');
+      return this.expoAvModule;
+    } catch {
+      this.available = false;
+      return null;
+    }
+  }
 
   async init() {
-    if (this.initialized) return;
+    if (this.initialized || !this.available) return;
+
+    const expoAv = await this.loadExpoAv();
+    if (!expoAv) return;
+
+    const { Audio, InterruptionModeAndroid, InterruptionModeIOS } = expoAv;
+
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
       interruptionModeIOS: InterruptionModeIOS.DoNotMix,
@@ -45,13 +72,13 @@ class AudioController {
         AUDIO_ASSETS.music,
         { isLooping: true, volume: 0, shouldPlay: this.musicEnabled },
       );
-      this.musicSound = sound;
+      this.musicSound = sound as SoundInstance;
     }
 
     for (const [key, asset] of Object.entries(AUDIO_ASSETS.sfx) as Array<[SfxType, number | null]>) {
       if (!asset) continue;
       const { sound } = await Audio.Sound.createAsync(asset, { shouldPlay: false, volume: 0.9 });
-      this.sfxSounds[key] = sound;
+      this.sfxSounds[key] = sound as SoundInstance;
     }
 
     this.initialized = true;
