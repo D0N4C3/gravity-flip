@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import COLORS from '@/constants/colors';
-import { DAILY_REWARDS } from '@/constants/game';
+import { DAILY_REWARDS, POWERUPS, SKINS } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
 
 interface Props {
@@ -44,6 +44,17 @@ export default function DailyRewardsModal({ visible, onClose }: Props) {
   // Next day to claim (1-indexed)
   const nextDay = (dailyRewardStreak % 7) + 1;
   const currentStreak = dailyRewardClaimed ? dailyRewardStreak : dailyRewardStreak;
+  const progressCount = dailyRewardClaimed || justClaimed ? currentStreak : Math.max(0, currentStreak - 1);
+
+  const getRewardDisplay = (reward: typeof DAILY_REWARDS[number]) => {
+    if (reward.type === 'coins') return { icon: 'ellipse' as const, label: `${reward.amount}`, color: COLORS.neonYellow };
+    if (reward.type === 'powerup' && reward.powerupId) return { icon: POWERUPS[reward.powerupId].icon as keyof typeof Ionicons.glyphMap, label: `x${reward.amount}`, color: POWERUPS[reward.powerupId].color };
+    if (reward.type === 'skin_fragment' && reward.fragmentSkinId) {
+      const skin = SKINS.find(s => s.id === reward.fragmentSkinId);
+      return { icon: 'diamond' as const, label: `${reward.amount} FRAG`, color: skin?.color || COLORS.neonCyan };
+    }
+    return { icon: 'gift' as const, label: String(reward.amount), color: COLORS.textMuted };
+  };
 
   function handleClaim() {
     if (dailyRewardClaimed || justClaimed) return;
@@ -87,6 +98,7 @@ export default function DailyRewardsModal({ visible, onClose }: Props) {
                   : day < currentStreak;
                 const isToday = canClaim && day === nextDay;
                 const isFuture = day > nextDay;
+                const display = getRewardDisplay(reward);
                 return (
                   <View key={day} style={[
                     styles.dayCard,
@@ -101,9 +113,9 @@ export default function DailyRewardsModal({ visible, onClose }: Props) {
                       DAY {day}
                     </Text>
                     <View style={styles.dayCoins}>
-                      <View style={[styles.coinDot, (isClaimed || isToday) && { backgroundColor: COLORS.neonYellow }]} />
-                      <Text style={[styles.dayCoinsText, (isClaimed || isToday) && { color: COLORS.neonYellow }]}>
-                        {reward.coins}
+                      <Ionicons name={display.icon} size={10} color={isClaimed || isToday ? display.color : COLORS.textMuted} />
+                      <Text style={[styles.dayCoinsText, { color: isClaimed || isToday ? display.color : COLORS.textMuted }]}>
+                        {display.label}
                       </Text>
                     </View>
                     {isClaimed && (
@@ -115,12 +127,18 @@ export default function DailyRewardsModal({ visible, onClose }: Props) {
                 );
               })}
             </View>
+            <View style={styles.progressRow}>
+              {DAILY_REWARDS.map((reward, idx) => {
+                const filled = idx < progressCount;
+                return <View key={`progress-${reward.day}`} style={[styles.progressDot, filled && styles.progressDotFilled]} />;
+              })}
+            </View>
 
             {/* Claim / Already Claimed */}
             {justClaimed ? (
               <Animated.View style={[styles.claimedBanner, { transform: [{ scale: claimAnim }] }]}>
                 <Ionicons name="checkmark-circle" size={22} color={COLORS.neonYellow} />
-                <Text style={styles.claimedBannerText}>+{claimedCoins} COINS CLAIMED!</Text>
+                <Text style={styles.claimedBannerText}>+{claimedCoins} REWARD CLAIMED!</Text>
               </Animated.View>
             ) : canClaim ? (
               <TouchableOpacity onPress={handleClaim} activeOpacity={0.85} style={styles.claimBtn}>
@@ -171,8 +189,10 @@ const styles = StyleSheet.create({
   dayCardFuture: { opacity: 0.4 },
   dayLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 8, color: COLORS.textMuted, letterSpacing: 0.5 },
   dayCoins: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  coinDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: COLORS.textMuted },
   dayCoinsText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: COLORS.textMuted },
+  progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 18 },
+  progressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.1)' },
+  progressDotFilled: { backgroundColor: COLORS.neonYellow },
   claimedCheck: {
     position: 'absolute', top: 4, right: 4, width: 12, height: 12,
     borderRadius: 6, backgroundColor: COLORS.neonYellow, alignItems: 'center', justifyContent: 'center',

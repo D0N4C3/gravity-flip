@@ -144,14 +144,22 @@ export interface LifetimeStats {
 
 // ─── Daily Rewards ─────────────────────────────────────────────────────────────
 
-export const DAILY_REWARDS = [
-  { day: 1, coins: 50 },
-  { day: 2, coins: 100 },
-  { day: 3, coins: 150 },
-  { day: 4, coins: 200 },
-  { day: 5, coins: 300 },
-  { day: 6, coins: 400 },
-  { day: 7, coins: 750 },
+export type DailyRewardEntry = {
+  day: number;
+  type: 'coins' | 'powerup' | 'skin_fragment';
+  amount: number;
+  powerupId?: PowerupType;
+  fragmentSkinId?: typeof SKINS[number]['id'];
+};
+
+export const DAILY_REWARDS: DailyRewardEntry[] = [
+  { day: 1, type: 'coins' as const, amount: 50 },
+  { day: 2, type: 'coins' as const, amount: 100 },
+  { day: 3, type: 'powerup' as const, amount: 1, powerupId: 'shield' as const },
+  { day: 4, type: 'coins' as const, amount: 250 },
+  { day: 5, type: 'skin_fragment' as const, amount: 3, fragmentSkinId: 'ghost' as const },
+  { day: 6, type: 'powerup' as const, amount: 2, powerupId: 'magnet' as const },
+  { day: 7, type: 'coins' as const, amount: 750 },
 ];
 
 // ─── Challenges ────────────────────────────────────────────────────────────────
