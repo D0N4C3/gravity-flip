@@ -18,6 +18,7 @@ import {
   PowerupSvg, CharacterSvg,
 } from '@/components/GameSvgs';
 import COLORS from '@/constants/colors';
+import HudAssetIcon from '@/components/HudAssetIcon';
 import {
   SKINS, TRAILS, GAME, ENVIRONMENTS, ENV_ORDER, POWERUPS,
   PowerupType, EnvironmentId, ChallengeType, SCORE_MILESTONES,
@@ -1062,12 +1063,15 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
             position: 'absolute',
             left: coin.x - R, top: coin.y - R,
             width: R * 2, height: R * 2,
+            borderRadius: R,
+            shadowColor: cColor, shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: coin.rare ? 1 : coin.highValue ? 0.9 : 0.85,
+            shadowRadius: coin.rare ? 14 : coin.highValue ? 10 : 7,
           }}>
-            {coin.rare
-              ? <CoinLegendarySvg size={R * 2} />
-              : coin.highValue
-              ? <CoinRareSvg size={R * 2} />
-              : <CoinStandardSvg size={R * 2} />}
+            <HudAssetIcon
+              name={coin.rare ? 'coin_legendary' : coin.highValue ? 'coin_rare' : 'coin_standard'}
+              size={R * 2}
+            />
           </View>
         );
       })}
@@ -1187,10 +1191,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       {activePowerups.length > 0 && (
         <View style={[styles.powerupHUD, { top: CEIL_BOT + WALL_T + 8 }]}>
           {activePowerups.map(pu => (
-            <View key={pu.type} style={[styles.powerupPill, { borderColor: POWERUPS[pu.type].color, backgroundColor: `${POWERUPS[pu.type].color}15` }]}>
-              <PowerupSvg type={pu.type} size={22} />
-              {pu.timeLeft !== undefined && (
-                <View style={[styles.powerupTimerBar, { width: 32 }]}>
+            <View key={pu.type} style={[styles.powerupPill, { borderColor: POWERUPS[pu.type].color, backgroundColor: `${POWERUPS[pu.type].color}12` }]}>
+              <PowerupIcon type={pu.type} size={11} />
+              {pu.durationLeftMs > 0 && (
+                <View style={[styles.powerupTimerBar, { width: 28 }]}>
                   <View style={[styles.powerupTimerFill, {
                     width: `${(pu.timeLeft / POWERUPS[pu.type].duration) * 100}%`,
                     backgroundColor: POWERUPS[pu.type].color,
@@ -1227,19 +1231,52 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 function PlayerBody({ skin, size, onFloor, velocity }: {
   skin: typeof SKINS[0]; size: number; onFloor: boolean; velocity: number;
 }) {
-  const flip = onFloor ? 1 : -1;
+  const eyeProgress = Math.abs(velocity) / 800;
+  const eyeShift = Math.min(eyeProgress, 1) * (onFloor ? -1 : 1) * 1.5;
+  const eyeY = size * 0.35 + eyeShift;
+  const eyeOpenness = Math.max(0.4, 1 - Math.abs(velocity) / 1200);
+
+  const baseStyle = {
+    width: size, height: size,
+    backgroundColor: skin.color,
+    shadowColor: skin.color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 10,
+  };
+
+  if (skin.shape === 'circle') {
+    return (
+      <View style={[baseStyle, { borderRadius: size / 2 }]}>
+        <View style={[styles.eye, { left: size * 0.2, top: eyeY - eyeOpenness * 2, height: 5 * eyeOpenness, backgroundColor: skin.eyeColor }]} />
+        <View style={[styles.eye, { left: size * 0.54, top: eyeY - eyeOpenness * 2, height: 5 * eyeOpenness, backgroundColor: skin.eyeColor }]} />
+      </View>
+    );
+  }
+  if (skin.shape === 'diamond') {
+    return (
+      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={[baseStyle, { width: size * 0.72, height: size * 0.72, borderRadius: 3, transform: [{ rotate: '45deg' }] }]} />
+      </View>
+    );
+  }
   return (
-    <View style={{
-      width: size, height: size,
-      transform: [{ scaleY: flip }],
-      shadowColor: skin.color,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 1,
-      shadowRadius: 12,
-    }}>
-      <CharacterSvg skinId={skin.id} size={size} />
+    <View style={[baseStyle, { borderRadius: 5 }]}>
+      {/* Main eyes */}
+      <View style={[styles.eye, { left: size * 0.18, top: eyeY - eyeOpenness * 2.5, height: Math.max(3, 6 * eyeOpenness), backgroundColor: skin.eyeColor }]} />
+      <View style={[styles.eye, { left: size * 0.52, top: eyeY - eyeOpenness * 2.5, height: Math.max(3, 6 * eyeOpenness), backgroundColor: skin.eyeColor }]} />
+      {/* Shine dot on each eye */}
+      <View style={{ position: 'absolute', left: size * 0.22, top: eyeY - eyeOpenness * 2, width: 2, height: 2, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.7)' }} />
+      <View style={{ position: 'absolute', left: size * 0.56, top: eyeY - eyeOpenness * 2, width: 2, height: 2, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.7)' }} />
     </View>
   );
+}
+
+
+
+function PowerupIcon({ type, size }: { type: PowerupType; size: number }) {
+  if (type === 'shield') return <HudAssetIcon name="powerup_shield" size={size} />;
+  if (type === 'slowmo') return <HudAssetIcon name="powerup_slowmo" size={size} />;
+  if (type === 'magnet') return <HudAssetIcon name="powerup_magnet" size={size} />;
+  if (type === 'double_score') return <HudAssetIcon name="powerup_doublescore" size={size} />;
+  return <Ionicons name={POWERUPS[type].icon as any} size={size} color={POWERUPS[type].color} />;
 }
 
 function PowerupPickupComp({ pu }: { pu: PowerupPickup }) {
@@ -1252,7 +1289,7 @@ function PowerupPickupComp({ pu }: { pu: PowerupPickup }) {
       alignItems: 'center', justifyContent: 'center',
       shadowColor: cfg.color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 14,
     }}>
-      <PowerupSvg type={pu.type} size={R * 2} />
+      <PowerupIcon type={pu.type} size={12} />
     </View>
   );
 }
@@ -1261,7 +1298,17 @@ function SpikeGroup({ count, fromFloor, x, floorTop, ceilBot, color }: {
   count: number; fromFloor: boolean; x: number;
   floorTop: number; ceilBot: number; color: string;
 }) {
-  const w = count === 1 ? 48 : count === 2 ? 64 : 80;
+  const spikes = Array.from({ length: count }, (_, i) => i);
+  if (count === 1) {
+    return (
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', left: x - 10, top: fromFloor ? floorTop - 20 : ceilBot, opacity: 0.95 }}
+      >
+        <HudAssetIcon name={fromFloor ? 'obstacle_floor_spikes' : 'obstacle_ceiling_spikes'} size={20} />
+      </View>
+    );
+  }
   if (fromFloor) {
     return (
       <View style={{ position: 'absolute', left: x, top: floorTop - SPIKE_H }} pointerEvents="none">
@@ -1303,10 +1350,14 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
     const D = BLADE_R * 2 + 6;
     return (
       <View pointerEvents="none" style={{
-        position: 'absolute', left: obs.x - BLADE_R - 3, top: midY - BLADE_R - 3,
-        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 14,
+        position: 'absolute', left: obs.x - BLADE_R, top: midY - BLADE_R,
+        width: BLADE_R * 2, height: BLADE_R * 2,
+        borderRadius: BLADE_R, borderWidth: 2.5, borderColor: color,
+        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 12,
+        transform: [{ rotate: `${obs.rotation ?? 0}deg` }],
+        alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent',
       }}>
-        <ObstacleRotatingBladeSvg size={D} rotation={obs.rotation ?? 0} />
+        <HudAssetIcon name="obstacle_rotating_blade" size={BLADE_R * 2} />
       </View>
     );
   }
@@ -1348,12 +1399,43 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
     const top = obs.laserFromFloor ? floorTop - beamH : ceilBot;
     const isOn = !!obs.laserOn;
     return (
-      <View pointerEvents="none" style={{
-        position: 'absolute', left: obs.x - 12, top,
-        shadowColor: '#FF2266', shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: isOn ? 1 : 0.3, shadowRadius: isOn ? 16 : 4,
-      }}>
-        <ObstacleLaserGateSvg width={24} height={beamH} opacity={isOn ? 1 : 0.35} />
+      <View pointerEvents="none">
+        {isTelegraph && (
+          <View style={{
+            position: 'absolute', left: obs.x - 7, top: top - 4,
+            width: 14, height: beamH + 8, borderRadius: 7,
+            borderWidth: 1.2, borderColor: '#FFAA33AA', backgroundColor: '#FFAA3318',
+          }} />
+        )}
+        {/* Beam body */}
+        <View style={{
+          position: 'absolute', left: obs.x - 2, top,
+          width: 4, height: beamH,
+          backgroundColor: laserColor,
+          shadowColor: '#FF2266',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: isOn ? 1 : 0.15,
+          shadowRadius: isOn ? 14 : 3,
+        }} />
+        {/* Core bright line */}
+        <View style={{ position: 'absolute', left: obs.x - 13, top: top - 12, opacity: isOn ? 1 : 0.55 }}>
+          <HudAssetIcon name="obstacle_laser_gate" size={26} />
+        </View>
+        <View style={{
+          position: 'absolute', left: obs.x - 0.5, top,
+          width: 1, height: beamH,
+          backgroundColor: isOn ? '#FFFFFF' : 'transparent',
+          opacity: isOn ? 0.9 : 0,
+        }} />
+        {/* Source node at wall */}
+        <View style={{
+          position: 'absolute', left: obs.x - 5,
+          top: obs.laserFromFloor ? floorTop - 5 : ceilBot - 5,
+          width: 10, height: 10, borderRadius: 5,
+          backgroundColor: isOn ? '#FF2266' : '#FF226655',
+          shadowColor: '#FF2266', shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: isOn ? 1 : 0.3, shadowRadius: isOn ? 10 : 3,
+        }} />
       </View>
     );
   }
