@@ -23,6 +23,7 @@ import {
   PowerupType, EnvironmentId, ChallengeType, SCORE_MILESTONES,
 } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
+import { ChunkSpawner } from '@/game/generation/spawner';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -90,6 +91,12 @@ interface Popup {
   text: string; color: string; timer: number; size: 'sm' | 'md' | 'lg';
 }
 
+interface DeathSnapshot {
+  playerY: number;
+  onFloor: boolean;
+  obstacleAnchorX: number;
+}
+
 interface GState {
   phase: 'playing' | 'dead';
   onFloor: boolean;
@@ -144,6 +151,12 @@ interface GState {
   lastMilestone: number;
   // Warning
   warnTimer: number;
+  reviveAdReady: boolean;
+  revivePending: boolean;
+  deathFlash: number;
+  deathExplosion: number;
+  deathShake: number;
+  deathSnapshot: DeathSnapshot | null;
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -157,6 +170,7 @@ const TRAIL_INTERVAL = 0.028;
 const DANGER_DIST = 60;
 const MAGNET_RANGE = 140;
 const MAGNET_SPEED = 220;
+const MAGNET_PULL_DURATION = 10;
 const SPEED_LINE_THRESHOLD = 0.35;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -239,6 +253,9 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     bgFar: [], bgMid: [], bgNear: [],
     popup: null, dangerFloor: 0, dangerCeil: 0,
     lastMilestone: 0, warnTimer: 0,
+    reviveAdReady: true, revivePending: false,
+    deathFlash: 0, deathExplosion: 0, deathShake: 0,
+    deathSnapshot: null,
   });
 
   const scoreRef = useRef(0);
@@ -247,6 +264,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const lastTimeRef = useRef<number>(0);
   const isPausedRef = useRef(isPaused);
   const deadFiredRef = useRef(false);
+  const chunkSpawnerRef = useRef(new ChunkSpawner(Date.now()));
 
   const [score, setScore] = useState(0);
   const [renderTick, setRenderTick] = useState(0);
@@ -282,11 +300,20 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   useImperativeHandle(ref, () => ({
     revive() {
       const g = gRef.current;
-      // Grant a 2-second shield so the player isn't instantly re-killed
+      if (g.reviveUsed || !g.reviveAdReady || !g.deathSnapshot) return;
       g.phase = 'playing';
       g.reviveUsed = true;
+      g.reviveAdReady = false;
+      g.revivePending = false;
       g.powerupShieldActive = true;
+      g.shieldHitsRemaining = Math.max(g.shieldHitsRemaining, 1);
+      g.playerY = g.deathSnapshot.playerY;
+      g.onFloor = g.deathSnapshot.onFloor;
+      g.obstacles = g.obstacles.filter((o) => o.x < g.deathSnapshot!.obstacleAnchorX - 30);
       g.deathSlowmo = 0;
+      g.deathFlash = 0;
+      g.deathExplosion = 0;
+      g.deathShake = 0;
       deadFiredRef.current = false;
       isPausedRef.current = false;
       lastTimeRef.current = 0;
@@ -433,17 +460,13 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       }
     }
 
-    // ── Spawn obstacles ────────────────────────────────────────────────────────
-    g.nextObsTimer -= dt;
-    if (g.nextObsTimer <= 0) {
-      const obs = spawnObstacle(g.totalTime, g.speed);
+    // ── Spawn obstacles from difficulty-tagged chunk pipeline ─────────────────
+    const spawnEvents = chunkSpawnerRef.current.spawn({ elapsedSec: g.totalTime });
+    for (const event of spawnEvents) {
+      const obs = spawnObstacleFromChunk(event.obstacle.type, g.totalTime, g.speed, event.obstacle);
       g.obstacles.push(obs);
-
       if (Math.random() < GAME.COIN_SPAWN_CHANCE) spawnCoins(obs, g);
       if (Math.random() < GAME.POWERUP_SPAWN_CHANCE) spawnPowerup(g);
-
-      const baseInterval = 380 / g.speed;
-      g.nextObsTimer = Math.max(0.95, baseInterval);
     }
 
     // ── Score ──────────────────────────────────────────────────────────────────
@@ -616,12 +639,24 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
     // ── Death ─────────────────────────────────────────────────────────────────
     if (g.deathSlowmo > 0) g.deathSlowmo -= rawDelta;
+    if (g.deathFlash > 0) g.deathFlash -= rawDelta * 2.4;
+    if (g.deathExplosion > 0) g.deathExplosion -= rawDelta * 1.7;
+    if (g.deathShake > 0) g.deathShake -= rawDelta * 1.9;
 
     if (died && !deadFiredRef.current) {
       deadFiredRef.current = true;
       g.phase = 'dead';
       g.comboStreak = 0;
       g.deathSlowmo = 0.6;
+      g.deathFlash = 1;
+      g.deathExplosion = 1;
+      g.deathShake = 1;
+      g.revivePending = g.reviveAdReady && !g.reviveUsed;
+      g.deathSnapshot = {
+        playerY: g.playerY,
+        onFloor: g.onFloor,
+        obstacleAnchorX: P_X + P_SIZE,
+      };
       if (settings.vibration) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, skin.color, 24);
       Animated.sequence([
@@ -693,8 +728,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       g.shieldHitsRemaining = 1 + upgrades.shield_strength;
     }
     else if (type === 'slowmo') g.powerupSlowmoTime = POWERUPS.slowmo.duration;
-    else if (type === 'double_score') g.powerupDoubleScoreTime = POWERUPS.double_score.duration;
-    else if (type === 'magnet') g.powerupMagnetTime = POWERUPS.magnet.duration;
+    else if (type === 'double_score') g.powerupDoubleScoreTime = Math.max(g.powerupDoubleScoreTime, POWERUPS.double_score.duration);
+    else if (type === 'magnet') g.powerupMagnetTime = Math.max(g.powerupMagnetTime, MAGNET_PULL_DURATION);
   }
 
   function spawnBurst(g: GState, x: number, y: number, color: string, count: number) {
@@ -777,19 +812,49 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
   }
 
-  function spawnObstacle(totalTime: number, speed: number): Obstacle {
+
+  function spawnObstacleFromChunk(type: ObstacleType, totalTime: number, speed: number, spec?: Partial<Obstacle>): Obstacle {
+    const obs = spawnObstacle(totalTime, speed, type);
+    if (spec?.spikeCount) obs.spikeCount = spec.spikeCount;
+    if (spec?.laserCycleOn) obs.laserCycleOn = spec.laserCycleOn;
+    if (spec?.laserCycleOff) obs.laserCycleOff = spec.laserCycleOff;
+    if (spec?.moveVelocity) obs.moveVelocity = spec.moveVelocity;
+    return obs;
+  }
+
+  function spawnObstacle(totalTime: number, speed: number, forcedType?: ObstacleType): Obstacle {
     const id = mkId(); const x = SW + 28;
     if (totalTime < 8) {
       return { id, type: Math.random() < 0.5 ? 'floor_spike' : 'ceiling_spike', x, width: SPIKE_W * 2 };
     }
     if (totalTime < 20) {
       const r = Math.random();
+    if (forcedType) {
+      if (forcedType === 'floor_spike') return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
+      if (forcedType === 'ceiling_spike') return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
+      if (forcedType === 'floor_spikes') return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+      if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+      if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
+      if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
+      if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+      if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
+    }
       if (r < 0.35) return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
       if (r < 0.7) return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
       return { id, type: 'floor_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
     }
     if (totalTime < 35) {
       const r = Math.random();
+    if (forcedType) {
+      if (forcedType === 'floor_spike') return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
+      if (forcedType === 'ceiling_spike') return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
+      if (forcedType === 'floor_spikes') return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+      if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+      if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
+      if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
+      if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+      if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
+    }
       if (r < 0.18) return { id, type: 'floor_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
       if (r < 0.36) return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
       if (r < 0.54) return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
@@ -798,6 +863,16 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
     if (totalTime < 55) {
       const r = Math.random();
+    if (forcedType) {
+      if (forcedType === 'floor_spike') return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
+      if (forcedType === 'ceiling_spike') return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
+      if (forcedType === 'floor_spikes') return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+      if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+      if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
+      if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
+      if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+      if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
+    }
       if (r < 0.2) return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
       if (r < 0.4) return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
       if (r < 0.58) return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 75 + Math.random() * 45 };
@@ -805,6 +880,16 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       return { id, type: Math.random() < 0.5 ? 'floor_spikes' : 'ceiling_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
     }
     const r = Math.random();
+    if (forcedType) {
+      if (forcedType === 'floor_spike') return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
+      if (forcedType === 'ceiling_spike') return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
+      if (forcedType === 'floor_spikes') return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+      if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+      if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
+      if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
+      if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+      if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
+    }
     if (r < 0.12) return { id, type: 'spike_wall' as const, x, width: 10, gapAtFloor: Math.random() < 0.5 };
     if (r < 0.24) return { id, type: 'laser_gate' as const, x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
     if (r < 0.40) return { id, type: 'rotating_blade' as const, x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
