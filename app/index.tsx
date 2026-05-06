@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import COLORS from '@/constants/colors';
 import MainMenu from '@/components/MainMenu';
@@ -13,6 +13,8 @@ import AchievementsModal from '@/components/AchievementsModal';
 import DailyRewardsModal from '@/components/DailyRewardsModal';
 import UpgradesModal from '@/components/UpgradesModal';
 import ShopModal from '@/components/ShopModal';
+import { useGame } from '@/context/GameContext';
+import { gameAudio } from '@/lib/audio';
 
 type Screen = 'menu' | 'game' | 'dead';
 
@@ -32,7 +34,19 @@ export default function App() {
   const [showUpgrades, setShowUpgrades] = useState(false);
   const [showShop, setShowShop] = useState(false);
   const gameKeyRef = useRef(0);
+  const { settings } = useGame();
   const gameScreenRef = useRef<GameScreenRef>(null);
+
+  useEffect(() => {
+    gameAudio.setSettings({ music: settings.music, sfx: settings.sfx });
+    if (screen === 'menu') gameAudio.startMusic();
+    else gameAudio.stopMusic();
+  }, [settings.music, settings.sfx, screen]);
+
+  const onUiTap = useCallback((fn: () => void) => {
+    gameAudio.playSfx('uiClick');
+    fn();
+  }, []);
 
   const handlePlay = useCallback(() => {
     gameKeyRef.current += 1;
@@ -87,14 +101,14 @@ export default function App() {
       {screen === 'menu' && (
         <MainMenu
           onPlay={handlePlay}
-          onSkins={() => setShowSkins(true)}
-          onShop={() => setShowShop(true)}
-          onLeaderboard={() => setShowLeaderboard(true)}
-          onSettings={() => setShowSettings(true)}
-          onChallenges={() => setShowChallenges(true)}
-          onAchievements={() => setShowAchievements(true)}
-          onDailyRewards={() => setShowDailyRewards(true)}
-          onUpgrades={() => setShowUpgrades(true)}
+          onSkins={() => onUiTap(() => setShowSkins(true))}
+          onShop={() => onUiTap(() => setShowShop(true))}
+          onLeaderboard={() => onUiTap(() => setShowLeaderboard(true))}
+          onSettings={() => onUiTap(() => setShowSettings(true))}
+          onChallenges={() => onUiTap(() => setShowChallenges(true))}
+          onAchievements={() => onUiTap(() => setShowAchievements(true))}
+          onDailyRewards={() => onUiTap(() => setShowDailyRewards(true))}
+          onUpgrades={() => onUiTap(() => setShowUpgrades(true))}
         />
       )}
 
@@ -117,7 +131,7 @@ export default function App() {
             onRetry={handleRetry}
             onRevive={handleRevive}
             canRevive={canRevive}
-            onMenu={() => setScreen('menu')}
+            onMenu={() => onUiTap(() => setScreen('menu'))}
           />
         </View>
       )}
@@ -129,18 +143,18 @@ export default function App() {
           onResume={handleResume}
           onRestart={handleRestartFromPause}
           onMenu={handleMenuFromPause}
-          onSettings={() => setShowSettings(true)}
+          onSettings={() => onUiTap(() => setShowSettings(true))}
         />
       )}
 
-      <SkinsModal visible={showSkins} onClose={() => setShowSkins(false)} />
-      <LeaderboardModal visible={showLeaderboard} onClose={() => setShowLeaderboard(false)} />
-      <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />
-      <DailyChallengesModal visible={showChallenges} onClose={() => setShowChallenges(false)} />
-      <AchievementsModal visible={showAchievements} onClose={() => setShowAchievements(false)} />
-      <DailyRewardsModal visible={showDailyRewards} onClose={() => setShowDailyRewards(false)} />
-      <UpgradesModal visible={showUpgrades} onClose={() => setShowUpgrades(false)} />
-      <ShopModal visible={showShop} onClose={() => setShowShop(false)} />
+      <SkinsModal visible={showSkins} onClose={() => onUiTap(() => setShowSkins(false))} />
+      <LeaderboardModal visible={showLeaderboard} onClose={() => onUiTap(() => setShowLeaderboard(false))} />
+      <SettingsModal visible={showSettings} onClose={() => onUiTap(() => setShowSettings(false))} />
+      <DailyChallengesModal visible={showChallenges} onClose={() => onUiTap(() => setShowChallenges(false))} />
+      <AchievementsModal visible={showAchievements} onClose={() => onUiTap(() => setShowAchievements(false))} />
+      <DailyRewardsModal visible={showDailyRewards} onClose={() => onUiTap(() => setShowDailyRewards(false))} />
+      <UpgradesModal visible={showUpgrades} onClose={() => onUiTap(() => setShowUpgrades(false))} />
+      <ShopModal visible={showShop} onClose={() => onUiTap(() => setShowShop(false))} />
     </View>
   );
 }

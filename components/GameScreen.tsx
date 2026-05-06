@@ -24,6 +24,7 @@ import {
 } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
 import { ChunkSpawner } from '@/game/generation/spawner';
+import { gameAudio } from '@/lib/audio';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -287,6 +288,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   }, []);
 
   useEffect(() => {
+    gameAudio.setSettings({ music: settings.music, sfx: settings.sfx });
+  }, [settings.music, settings.sfx]);
+
+  useEffect(() => {
     isPausedRef.current = isPaused;
     if (!isPaused && gRef.current.phase === 'playing') {
       lastTimeRef.current = 0;
@@ -508,6 +513,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     // ── Difficulty ────────────────────────────────────────────────────────────
     g.totalTime += rawDelta;
     g.survivalTime += rawDelta;
+    gameAudio.updateMusicIntensity(g.survivalTime);
     // Speed curve: linear 0–30s → faster linear 30–60s → exponential after 60s
     {
       const t = g.totalTime;
@@ -611,6 +617,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
             scoreRef.current += 2;
             showPopup(g, 'NEAR MISS! +2', COLORS.neonOrange, 'sm');
             if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            gameAudio.playSfx('nearMiss');
           }
         }
       }
@@ -635,6 +642,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         if (coin.rare) showPopup(g, 'RARE COIN +5', '#FFE600', 'sm');
         else if (coin.highValue) showPopup(g, '+3', '#FF9900', 'sm');
         if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        gameAudio.playSfx('pickup');
       }
     }
     g.coins = g.coins.filter(c => !c.collected);
@@ -652,6 +660,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         spawnBurst(g, pu.x, pu.y, POWERUPS[pu.type].color, 10);
         showPopup(g, POWERUPS[pu.type].label, POWERUPS[pu.type].color, 'md');
         if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        gameAudio.playSfx('pickup');
       }
     }
     g.powerupPickups = g.powerupPickups.filter(p => !p.collected);
@@ -677,6 +686,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         obstacleAnchorX: P_X + P_SIZE,
       };
       if (settings.vibration) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      gameAudio.playSfx('death');
       spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, skin.color, 24);
       Animated.sequence([
         Animated.timing(shakeAnim, { toValue: 12, duration: 35, useNativeDriver: true }),
@@ -924,6 +934,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     if (g.phase !== 'playing') return;
     if (g.flipCooldown > 0) return;
 
+    gameAudio.playSfx('flip');
     g.onFloor = !g.onFloor;
     g.flipCount += 1;
     const effectiveCooldown = [0.32, 0.26, 0.20, 0.14][upgrades.flip_speed] ?? 0.32;
