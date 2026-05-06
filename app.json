@@ -29,7 +29,6 @@
         "image": "./assets/images/android-splashscreen.png",
         "resizeMode": "contain",
         "backgroundColor": "#050A14"
-
       }
     },
     "web": {
@@ -48,6 +47,15 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": "https://qewiygames.com"
+      },
+      "eas": {
+        "projectId": "7ac002e2-c934-45d2-91f0-5228b45233c7"
+      }
+    },
+    "owner": "qewiy"
   }
 }
