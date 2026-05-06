@@ -104,6 +104,7 @@ interface GState {
   scaleX: number; scaleY: number;
   obstacles: Obstacle[];
   speed: number;
+  speedFromScore: number;
   nextObsTimer: number;
   scoreTimer: number;
   totalTime: number;
@@ -239,6 +240,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     scaleX: 1, scaleY: 1,
     obstacles: [],
     speed: GAME.OBSTACLE_SPEED_INITIAL,
+    speedFromScore: 0,
     nextObsTimer: 1.5, scoreTimer: 1,
     totalTime: 0, reviveUsed: false,
     flipCooldown: 0,
@@ -490,6 +492,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       const upgradeBonus = upgrades.score_multiplier;
       const gained = comboMult * doubleMult + upgradeBonus;
       scoreRef.current += gained;
+      g.speedFromScore = Math.min(g.speedFromScore + (gained * GAME.SPEED_GAIN_PER_POINT), GAME.OBSTACLE_SPEED_MAX - GAME.OBSTACLE_SPEED_INITIAL);
       setScore(scoreRef.current);
       onScoreChange?.(scoreRef.current);
 
@@ -516,7 +519,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       } else {
         newSpeed = (GAME.OBSTACLE_SPEED_INITIAL + 150) + Math.pow(t - 60, 1.45) * 1.5;
       }
-      g.speed = Math.min(newSpeed, GAME.OBSTACLE_SPEED_MAX);
+      g.speed = Math.min(newSpeed + g.speedFromScore, GAME.OBSTACLE_SPEED_MAX);
     }
 
     // ── Environment cycling ───────────────────────────────────────────────────

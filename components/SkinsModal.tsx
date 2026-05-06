@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import COLORS from '@/constants/colors';
 import { SKINS, TRAILS } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
+import { CharacterSvg } from '@/components/GameSvgs';
 
 interface Props {
   visible: boolean;
@@ -18,8 +19,7 @@ interface Props {
 
 type Tab = 'skins' | 'trails';
 
-function SkinPreview({ skinId, size = 36 }: { skinId: string; size?: number }) {
-  const skin = SKINS.find(s => s.id === skinId) || SKINS[0];
+function SkinPreview({ skinId, size = 42 }: { skinId: string; size?: number }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     Animated.loop(Animated.sequence([
@@ -27,27 +27,10 @@ function SkinPreview({ skinId, size = 36 }: { skinId: string; size?: number }) {
       Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
     ])).start();
   }, []);
-  if (skin.shape === 'circle') {
-    return (
-      <Animated.View style={[styles.previewCircle, {
-        width: size, height: size, borderRadius: size / 2,
-        backgroundColor: skin.color, shadowColor: skin.glowColor, opacity: pulseAnim,
-      }]} />
-    );
-  }
-  if (skin.shape === 'diamond') {
-    return (
-      <Animated.View style={[styles.previewSquare, {
-        width: size * 0.8, height: size * 0.8, backgroundColor: skin.color,
-        shadowColor: skin.glowColor, opacity: pulseAnim, transform: [{ rotate: '45deg' }],
-      }]} />
-    );
-  }
   return (
-    <Animated.View style={[styles.previewSquare, {
-      width: size, height: size, backgroundColor: skin.color,
-      shadowColor: skin.glowColor, opacity: pulseAnim,
-    }]} />
+    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+      <CharacterSvg skinId={skinId} size={size} />
+    </Animated.View>
   );
 }
 
@@ -69,7 +52,7 @@ function TrailPreview({ trailId }: { trailId: string }) {
 
 export default function SkinsModal({ visible, onClose }: Props) {
   const insets = useSafeAreaInsets();
-  const { selectedSkinId, selectSkin, selectedTrailId, selectTrail, unlockedSkins, unlockedTrails, bestScore, coins } = useGame();
+  const { selectedSkinId, selectSkin, selectedTrailId, selectTrail, unlockedSkins, unlockedTrails, buySkin, buyTrail, coins } = useGame();
   const slideAnim = useRef(new Animated.Value(400)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<Tab>('skins');
@@ -89,13 +72,13 @@ export default function SkinsModal({ visible, onClose }: Props) {
   }, [visible]);
 
   function handleSelectSkin(skinId: string) {
-    if (!unlockedSkins.includes(skinId)) return;
+    if (!unlockedSkins.includes(skinId) && !buySkin(skinId)) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     selectSkin(skinId);
   }
 
   function handleSelectTrail(trailId: string) {
-    if (!unlockedTrails.includes(trailId)) return;
+    if (!unlockedTrails.includes(trailId) && !buyTrail(trailId)) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     selectTrail(trailId);
   }
@@ -169,10 +152,12 @@ export default function SkinsModal({ visible, onClose }: Props) {
                               </Text>
                             </View>
                           )}
-                          {!isUnlocked && skin.unlockScore > 0 && (
+                          {!isUnlocked && (
                             <View style={styles.unlockRow}>
-                              <Ionicons name="trophy-outline" size={10} color={COLORS.neonCyan} />
-                              <Text style={styles.unlockScore}>{bestScore}/{skin.unlockScore}</Text>
+                              <View style={styles.unlockCoinDot} />
+                              <Text style={[styles.unlockScore, { color: COLORS.neonYellow }]}>
+                                {skin.unlockCoins}
+                              </Text>
                             </View>
                           )}
                           {isSelected && (
@@ -184,7 +169,7 @@ export default function SkinsModal({ visible, onClose }: Props) {
                       );
                     })}
                   </View>
-                  <Text style={styles.hint}>UNLOCK SKINS WITH SCORE MILESTONES OR COINS</Text>
+                  <Text style={styles.hint}>TAP A LOCKED SKIN TO BUY IT</Text>
                 </>
               ) : (
                 <>
@@ -244,7 +229,7 @@ export default function SkinsModal({ visible, onClose }: Props) {
                       );
                     })}
                   </View>
-                  <Text style={styles.hint}>TRAIL UNLOCKS WHEN YOU HAVE ENOUGH COINS</Text>
+                  <Text style={styles.hint}>TAP A LOCKED TRAIL TO BUY IT</Text>
                 </>
               )}
             </ScrollView>
@@ -261,6 +246,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden',
     borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1,
     borderColor: 'rgba(0, 245, 255, 0.12)',
+    backgroundColor: '#060E1A',
   },
   sheetContent: { paddingHorizontal: 20, paddingTop: 12 },
   handle: { width: 36, height: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
