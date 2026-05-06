@@ -1,0 +1,83 @@
+<svg width="80" height="120" viewBox="0 0 80 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- MOVING SPIKE - PINCER / DUAL VARIANT (floor + ceiling spikes closing simultaneously) -->
+  <!-- Intense electric yellow-green, danger feel -->
+  <defs>
+    <filter id="msp-glow" x="-40%" y="-60%" width="180%" height="220%">
+      <feGaussianBlur stdDeviation="2.5 3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="msp-mid-glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <linearGradient id="msp-top-body" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#224400"/>
+      <stop offset="60%" stop-color="#88DD00"/>
+      <stop offset="100%" stop-color="#DDFF66"/>
+    </linearGradient>
+    <linearGradient id="msp-bot-body" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#224400"/>
+      <stop offset="60%" stop-color="#88DD00"/>
+      <stop offset="100%" stop-color="#DDFF66"/>
+    </linearGradient>
+    <linearGradient id="msp-plate" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#112200"/>
+      <stop offset="50%" stop-color="#2A4400"/>
+      <stop offset="100%" stop-color="#112200"/>
+    </linearGradient>
+    <radialGradient id="msp-danger-zone" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#CCFF44" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#88DD00" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- ── CEILING SECTION ── -->
+  <rect x="0" y="0" width="80" height="8" fill="url(#msp-plate)" opacity="0.9"/>
+  <line x1="0" y1="8" x2="80" y2="8" stroke="#88DD00" stroke-width="1.2" opacity="0.85" filter="url(#msp-glow)"/>
+  <!-- Ceiling plate detail lines -->
+  <line x1="4" y1="3" x2="76" y2="3" stroke="#CCFF44" stroke-width="0.5" opacity="0.3"/>
+
+  <!-- Ghost trail (ceiling spike closing downward) -->
+  <polygon points="28,8 40,38 52,8" fill="#88DD00" opacity="0.10"/>
+  <polygon points="28,8 40,46 52,8" fill="#88DD00" opacity="0.16"/>
+
+  <!-- Ceiling spike (at mid-travel position) -->
+  <polygon points="24,8 40,54 56,8" fill="url(#msp-top-body)" filter="url(#msp-glow)"/>
+  <!-- Edge highlight -->
+  <line x1="24" y1="8" x2="40" y2="54" stroke="#DDFF66" stroke-width="0.9" opacity="0.6"/>
+
+  <!-- ── FLOOR SECTION ── -->
+  <rect x="0" y="112" width="80" height="8" fill="url(#msp-plate)" opacity="0.9"/>
+  <line x1="0" y1="112" x2="80" y2="112" stroke="#88DD00" stroke-width="1.2" opacity="0.85" filter="url(#msp-glow)"/>
+  <line x1="4" y1="117" x2="76" y2="117" stroke="#CCFF44" stroke-width="0.5" opacity="0.3"/>
+
+  <!-- Ghost trail (floor spike closing upward) -->
+  <polygon points="28,112 40,82 52,112" fill="#88DD00" opacity="0.10"/>
+  <polygon points="28,112 40,74 52,112" fill="#88DD00" opacity="0.16"/>
+
+  <!-- Floor spike (at mid-travel position) -->
+  <polygon points="24,112 40,66 56,112" fill="url(#msp-bot-body)" filter="url(#msp-glow)"/>
+  <!-- Edge highlight -->
+  <line x1="24" y1="112" x2="40" y2="66" stroke="#DDFF66" stroke-width="0.9" opacity="0.6"/>
+
+  <!-- ── COLLISION DANGER ZONE at center ── -->
+  <ellipse cx="40" cy="60" rx="22" ry="12" fill="url(#msp-danger-zone)" filter="url(#msp-mid-glow)"/>
+
+  <!-- Tip glow dots (opposing, nearly touching at center) -->
+  <circle cx="40" cy="54" r="3" fill="#FFFFFF" filter="url(#msp-glow)" opacity="0.95"/>
+  <circle cx="40" cy="66" r="3" fill="#FFFFFF" filter="url(#msp-glow)" opacity="0.95"/>
+
+  <!-- Crosshair / warning at danger zone center -->
+  <line x1="34" y1="60" x2="46" y2="60" stroke="#CCFF44" stroke-width="0.7" opacity="0.5" stroke-dasharray="2 2"/>
+  <line x1="40" y1="54" x2="40" y2="66" stroke="#CCFF44" stroke-width="0.7" opacity="0.4" stroke-dasharray="2 2"/>
+
+  <!-- Spark lines radiating from near-impact -->
+  <line x1="40" y1="58" x2="34" y2="52" stroke="#FFFFFF" stroke-width="0.5" opacity="0.45" stroke-linecap="round"/>
+  <line x1="40" y1="58" x2="46" y2="52" stroke="#FFFFFF" stroke-width="0.5" opacity="0.45" stroke-linecap="round"/>
+  <line x1="40" y1="62" x2="34" y2="68" stroke="#FFFFFF" stroke-width="0.5" opacity="0.45" stroke-linecap="round"/>
+  <line x1="40" y1="62" x2="46" y2="68" stroke="#FFFFFF" stroke-width="0.5" opacity="0.45" stroke-linecap="round"/>
+
+  <!-- Side ambient glow lines -->
+  <line x1="2" y1="8" x2="2" y2="112" stroke="#88DD00" stroke-width="0.5" opacity="0.08"/>
+  <line x1="78" y1="8" x2="78" y2="112" stroke="#88DD00" stroke-width="0.5" opacity="0.08"/>
+</svg>

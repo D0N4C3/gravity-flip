@@ -1,0 +1,79 @@
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+  <!-- MOVING SPIKE - FLOOR VARIANT (oscillates vertically up from floor) -->
+  <!-- Electric yellow-green neon palette -->
+  <defs>
+    <filter id="ms-glow" x="-40%" y="-60%" width="180%" height="250%">
+      <feGaussianBlur stdDeviation="2.5 3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="ms-track-glow" x="-80%" y="-20%" width="260%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <linearGradient id="ms-spike-body" x1="0%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#336600"/>
+      <stop offset="60%" stop-color="#88DD00"/>
+      <stop offset="100%" stop-color="#CCFF44"/>
+    </linearGradient>
+    <linearGradient id="ms-spike-body2" x1="0%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#224400"/>
+      <stop offset="60%" stop-color="#66AA00"/>
+      <stop offset="100%" stop-color="#AAEE22"/>
+    </linearGradient>
+    <linearGradient id="ms-base" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#335500"/>
+      <stop offset="100%" stop-color="#112200"/>
+    </linearGradient>
+    <linearGradient id="ms-track" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#CCFF44" stop-opacity="0.0"/>
+      <stop offset="40%" stop-color="#88DD00" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#CCFF44" stop-opacity="0.0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Motion track (ghost trail above) -->
+  <!-- Ghost spike #3 - faintest, highest -->
+  <polygon points="30,18 40,2 50,18" fill="#88DD00" opacity="0.08"/>
+  <!-- Ghost spike #2 -->
+  <polygon points="30,26 40,12 50,26" fill="#88DD00" opacity="0.14"/>
+  <!-- Ghost spike #1 - closest, most visible -->
+  <polygon points="30,34 40,20 50,34" fill="#88DD00" opacity="0.22"/>
+
+  <!-- Track rail (glowing vertical line) -->
+  <line x1="40" y1="4" x2="40" y2="72" stroke="url(#ms-track)" stroke-width="1.5" filter="url(#ms-track-glow)" opacity="0.6"/>
+
+  <!-- Motion arrow indicators (chevrons showing upward movement) -->
+  <polyline points="35,50 40,44 45,50" fill="none" stroke="#AAEE22" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+  <polyline points="35,57 40,51 45,57" fill="none" stroke="#AAEE22" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
+  <polyline points="35,64 40,58 45,64" fill="none" stroke="#88DD00" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"/>
+
+  <!-- Ground base plate -->
+  <rect x="0" y="72" width="80" height="8" fill="url(#ms-base)" opacity="0.85"/>
+  <line x1="0" y1="72" x2="80" y2="72" stroke="#88DD00" stroke-width="1" opacity="0.8" filter="url(#ms-glow)"/>
+
+  <!-- Side small spikes (static base flankers) -->
+  <polygon points="8,72  16,52 24,72" fill="url(#ms-spike-body2)" filter="url(#ms-glow)"/>
+  <polygon points="56,72 64,52 72,72" fill="url(#ms-spike-body2)" filter="url(#ms-glow)"/>
+
+  <!-- Main center moving spike (shown at mid-travel position) -->
+  <polygon points="26,72 40,36 54,72" fill="url(#ms-spike-body)" filter="url(#ms-glow)"/>
+
+  <!-- Tip glow - main -->
+  <circle cx="40" cy="36" r="3" fill="#FFFFFF" filter="url(#ms-glow)" opacity="0.95"/>
+  <!-- Flanker tip glows -->
+  <circle cx="16" cy="52" r="1.8" fill="#CCFF44" filter="url(#ms-glow)" opacity="0.8"/>
+  <circle cx="64" cy="52" r="1.8" fill="#CCFF44" filter="url(#ms-glow)" opacity="0.8"/>
+
+  <!-- Spike edge highlights -->
+  <line x1="26" y1="72" x2="40" y2="36" stroke="#CCFF44" stroke-width="0.9" opacity="0.6"/>
+  <line x1="8"  y1="72" x2="16" y2="52" stroke="#CCFF44" stroke-width="0.6" opacity="0.5"/>
+  <line x1="56" y1="72" x2="64" y2="52" stroke="#CCFF44" stroke-width="0.6" opacity="0.5"/>
+
+  <!-- Ground pool glow -->
+  <ellipse cx="40" cy="72" rx="36" ry="4" fill="#88DD00" opacity="0.13" filter="url(#ms-glow)"/>
+
+  <!-- Speed line sparks at tip -->
+  <line x1="40" y1="34" x2="36" y2="28" stroke="#FFFFFF" stroke-width="0.6" opacity="0.5" stroke-linecap="round"/>
+  <line x1="40" y1="34" x2="44" y2="28" stroke="#FFFFFF" stroke-width="0.6" opacity="0.5" stroke-linecap="round"/>
+  <line x1="40" y1="34" x2="38" y2="26" stroke="#CCFF44" stroke-width="0.4" opacity="0.4" stroke-linecap="round"/>
+</svg>

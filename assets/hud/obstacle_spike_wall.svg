@@ -1,0 +1,100 @@
+<svg width="32" height="120" viewBox="0 0 32 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- SPIKE WALL - vertical barrier with narrow gap, cyan/blue neon -->
+  <defs>
+    <filter id="sw-glow" x="-60%" y="-20%" width="220%" height="140%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="sw-tip-glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <linearGradient id="sw-body-top" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#003355"/>
+      <stop offset="50%" stop-color="#0088CC"/>
+      <stop offset="100%" stop-color="#00CCFF"/>
+    </linearGradient>
+    <linearGradient id="sw-body-bot" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#003355"/>
+      <stop offset="50%" stop-color="#0088CC"/>
+      <stop offset="100%" stop-color="#00CCFF"/>
+    </linearGradient>
+    <linearGradient id="sw-plate" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#001A33"/>
+      <stop offset="100%" stop-color="#003355"/>
+    </linearGradient>
+    <radialGradient id="sw-gap-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00FFFF" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#00FFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- ── TOP BLOCK (ceiling spikes pointing DOWN into gap) ── -->
+  <!-- Back plate top -->
+  <rect x="0" y="0" width="32" height="44" fill="url(#sw-plate)" opacity="0.95"/>
+  <rect x="0" y="0" width="32" height="44" fill="none" stroke="#00CCFF" stroke-width="0.8" opacity="0.6"/>
+  <!-- Horizontal grill lines on plate -->
+  <line x1="2" y1="8"  x2="30" y2="8"  stroke="#00CCFF" stroke-width="0.6" opacity="0.35"/>
+  <line x1="2" y1="16" x2="30" y2="16" stroke="#00CCFF" stroke-width="0.6" opacity="0.35"/>
+  <line x1="2" y1="24" x2="30" y2="24" stroke="#00CCFF" stroke-width="0.6" opacity="0.35"/>
+  <line x1="2" y1="32" x2="30" y2="32" stroke="#00CCFF" stroke-width="0.6" opacity="0.35"/>
+
+  <!-- Top spikes pointing downward (into gap) -->
+  <!-- Outer left spike -->
+  <polygon points="2,44 8,62 14,44"  fill="url(#sw-body-top)" filter="url(#sw-glow)"/>
+  <!-- Center spike (longest) -->
+  <polygon points="10,44 16,68 22,44" fill="url(#sw-body-top)" filter="url(#sw-glow)"/>
+  <!-- Outer right spike -->
+  <polygon points="18,44 24,62 30,44" fill="url(#sw-body-top)" filter="url(#sw-glow)"/>
+
+  <!-- Tip glow dots -->
+  <circle cx="16" cy="68" r="2.2" fill="#FFFFFF" filter="url(#sw-tip-glow)" opacity="0.95"/>
+  <circle cx="8"  cy="62" r="1.5" fill="#00EEFF" filter="url(#sw-tip-glow)" opacity="0.85"/>
+  <circle cx="24" cy="62" r="1.5" fill="#00EEFF" filter="url(#sw-tip-glow)" opacity="0.85"/>
+
+  <!-- Spike edge highlights -->
+  <line x1="10" y1="44" x2="16" y2="68" stroke="#88EEFF" stroke-width="0.7" opacity="0.55"/>
+  <line x1="2"  y1="44" x2="8"  y2="62" stroke="#88EEFF" stroke-width="0.5" opacity="0.45"/>
+  <line x1="18" y1="44" x2="24" y2="62" stroke="#88EEFF" stroke-width="0.5" opacity="0.45"/>
+
+  <!-- Surface glow line at plate edge -->
+  <line x1="0" y1="44" x2="32" y2="44" stroke="#00CCFF" stroke-width="1.2" opacity="0.8" filter="url(#sw-glow)"/>
+
+  <!-- ── GAP ZONE (safe passage) ── -->
+  <rect x="0" y="68" width="32" height="16" fill="url(#sw-gap-glow)"/>
+  <!-- Danger edge markers -->
+  <line x1="0" y1="68" x2="32" y2="68" stroke="#00FFFF" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
+  <line x1="0" y1="84" x2="32" y2="84" stroke="#00FFFF" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
+
+  <!-- ── BOTTOM BLOCK (floor spikes pointing UP into gap) ── -->
+  <!-- Back plate bottom -->
+  <rect x="0" y="76" width="32" height="44" fill="url(#sw-plate)" opacity="0.95"/>
+  <rect x="0" y="76" width="32" height="44" fill="none" stroke="#00CCFF" stroke-width="0.8" opacity="0.6"/>
+  <!-- Horizontal grill lines -->
+  <line x1="2" y1="88"  x2="30" y2="88"  stroke="#00CCFF" stroke-width="0.6" opacity="0.35"/>
+  <line x1="2" y1="96"  x2="30" y2="96"  stroke="#00CCFF" stroke-width="0.6" opacity="0.35"/>
+  <line x1="2" y1="104" x2="30" y2="104" stroke="#00CCFF" stroke-width="0.6" opacity="0.35"/>
+  <line x1="2" y1="112" x2="30" y2="112" stroke="#00CCFF" stroke-width="0.6" opacity="0.35"/>
+
+  <!-- Bottom spikes pointing upward (into gap) -->
+  <polygon points="2,76  8,58  14,76"  fill="url(#sw-body-bot)" filter="url(#sw-glow)"/>
+  <polygon points="10,76 16,52 22,76"  fill="url(#sw-body-bot)" filter="url(#sw-glow)"/>
+  <polygon points="18,76 24,58 30,76"  fill="url(#sw-body-bot)" filter="url(#sw-glow)"/>
+
+  <!-- Tip glow dots -->
+  <circle cx="16" cy="52" r="2.2" fill="#FFFFFF" filter="url(#sw-tip-glow)" opacity="0.95"/>
+  <circle cx="8"  cy="58" r="1.5" fill="#00EEFF" filter="url(#sw-tip-glow)" opacity="0.85"/>
+  <circle cx="24" cy="58" r="1.5" fill="#00EEFF" filter="url(#sw-tip-glow)" opacity="0.85"/>
+
+  <!-- Spike edge highlights -->
+  <line x1="10" y1="76" x2="16" y2="52" stroke="#88EEFF" stroke-width="0.7" opacity="0.55"/>
+  <line x1="2"  y1="76" x2="8"  y2="58" stroke="#88EEFF" stroke-width="0.5" opacity="0.45"/>
+  <line x1="18" y1="76" x2="24" y2="58" stroke="#88EEFF" stroke-width="0.5" opacity="0.45"/>
+
+  <!-- Surface glow line at plate edge -->
+  <line x1="0" y1="76" x2="32" y2="76" stroke="#00CCFF" stroke-width="1.2" opacity="0.8" filter="url(#sw-glow)"/>
+
+  <!-- Ambient side glow -->
+  <rect x="0" y="0" width="4" height="120" fill="#00CCFF" opacity="0.04"/>
+  <rect x="28" y="0" width="4" height="120" fill="#00CCFF" opacity="0.04"/>
+</svg>
