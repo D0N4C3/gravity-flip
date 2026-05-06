@@ -1,0 +1,125 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="gl-glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="gl-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="gl-body" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0A0A0A"/>
+      <stop offset="100%" stop-color="#151515"/>
+    </linearGradient>
+    <linearGradient id="gl-panel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#050508"/>
+      <stop offset="100%" stop-color="#0A0A12"/>
+    </linearGradient>
+    <linearGradient id="gl-scan" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00FF88" stop-opacity="0.3"/>
+      <stop offset="50%" stop-color="#00FF88" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#00FF88" stop-opacity="0.15"/>
+    </linearGradient>
+    <radialGradient id="gl-eye-r" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF0033"/>
+      <stop offset="60%" stop-color="#FF0033" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#FF0033" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gl-eye-g" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00FF88"/>
+      <stop offset="60%" stop-color="#00FF88" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#00FF88" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Chromatic aberration shadow layers -->
+  <!-- Red channel shift left -->
+  <rect x="7" y="9" width="44" height="44" rx="11" fill="#FF0033" opacity="0.25"/>
+  <!-- Blue channel shift right -->
+  <rect x="13" y="11" width="44" height="44" rx="11" fill="#0033FF" opacity="0.25"/>
+
+  <!-- Main body -->
+  <rect x="10" y="10" width="44" height="44" rx="11" fill="url(#gl-body)"/>
+
+  <!-- Inner dark panel -->
+  <rect x="14" y="14" width="36" height="36" rx="8" fill="url(#gl-panel)"/>
+
+  <!-- Scanlines overlay -->
+  <rect x="14" y="14" width="36" height="36" rx="8" fill="url(#gl-scan)" opacity="0.5"/>
+
+  <!-- Horizontal scanlines -->
+  <line x1="14" y1="17" x2="50" y2="17" stroke="#00FF88" stroke-width="0.6" opacity="0.2"/>
+  <line x1="14" y1="20" x2="50" y2="20" stroke="#00FF88" stroke-width="0.6" opacity="0.15"/>
+  <line x1="14" y1="23" x2="50" y2="23" stroke="#00FF88" stroke-width="0.6" opacity="0.2"/>
+  <line x1="14" y1="26" x2="50" y2="26" stroke="#00FF88" stroke-width="0.6" opacity="0.15"/>
+  <line x1="14" y1="38" x2="50" y2="38" stroke="#00FF88" stroke-width="0.6" opacity="0.2"/>
+  <line x1="14" y1="41" x2="50" y2="41" stroke="#00FF88" stroke-width="0.6" opacity="0.15"/>
+  <line x1="14" y1="44" x2="50" y2="44" stroke="#00FF88" stroke-width="0.6" opacity="0.2"/>
+  <line x1="14" y1="47" x2="50" y2="47" stroke="#00FF88" stroke-width="0.6" opacity="0.15"/>
+
+  <!-- Glitch tear / displaced chunks -->
+  <!-- Top glitch band -->
+  <rect x="14" y="14" width="28" height="5" rx="1" fill="#0A0A0A"/>
+  <rect x="16" y="14" width="26" height="5" rx="1" fill="#050508"/>
+  <line x1="16" y1="16" x2="42" y2="16" stroke="#00FF88" stroke-width="0.8" opacity="0.5"/>
+
+  <!-- Glitch displaced block 1 -->
+  <rect x="30" y="19" width="20" height="4" rx="1" fill="#FF0033" opacity="0.3"/>
+  <rect x="30" y="19" width="20" height="4" rx="1" fill="none" stroke="#FF0033" stroke-width="0.5" opacity="0.6"/>
+
+  <!-- Glitch displaced block 2 -->
+  <rect x="14" y="31" width="15" height="3" rx="1" fill="#0033FF" opacity="0.3"/>
+  <rect x="14" y="31" width="15" height="3" rx="1" fill="none" stroke="#0033FF" stroke-width="0.5" opacity="0.6"/>
+
+  <!-- Glitch displaced block 3 -->
+  <rect x="36" y="42" width="14" height="4" rx="1" fill="#FF0033" opacity="0.25"/>
+  <rect x="36" y="42" width="14" height="4" rx="1" fill="none" stroke="#FF0033" stroke-width="0.5" opacity="0.5"/>
+
+  <!-- Eyes — chromatic aberration split -->
+  <!-- Left eye layers -->
+  <circle cx="27" cy="30" r="5.5" fill="url(#gl-eye-r)" filter="url(#gl-soft)" opacity="0.8"/>
+  <circle cx="25" cy="30" r="5.5" fill="url(#gl-eye-g)" filter="url(#gl-soft)" opacity="0.6"/>
+  <circle cx="26" cy="30" r="3.5" fill="#080810"/>
+  <circle cx="26" cy="30" r="2" fill="#00FF88" opacity="0.9"/>
+  <circle cx="26" cy="30" r="0.8" fill="#FFFFFF"/>
+  <!-- Left eye pixel scatter -->
+  <rect x="22" y="27" width="1.5" height="1.5" fill="#FF0033" opacity="0.7"/>
+  <rect x="30" y="32" width="1" height="1" fill="#0033FF" opacity="0.6"/>
+
+  <!-- Right eye layers -->
+  <circle cx="39" cy="30" r="5.5" fill="url(#gl-eye-r)" filter="url(#gl-soft)" opacity="0.8"/>
+  <circle cx="37" cy="30" r="5.5" fill="url(#gl-eye-g)" filter="url(#gl-soft)" opacity="0.6"/>
+  <circle cx="38" cy="30" r="3.5" fill="#080810"/>
+  <circle cx="38" cy="30" r="2" fill="#00FF88" opacity="0.9"/>
+  <circle cx="38" cy="30" r="0.8" fill="#FFFFFF"/>
+  <!-- Right eye pixel scatter -->
+  <rect x="34" y="27" width="1.5" height="1.5" fill="#FF0033" opacity="0.7"/>
+  <rect x="42" y="32" width="1" height="1" fill="#0033FF" opacity="0.6"/>
+
+  <!-- Data corruption bars -->
+  <rect x="14" y="36" width="36" height="1.5" rx="0.75" fill="#00FF88" opacity="0.4"/>
+
+  <!-- Glitched mouth / status bar -->
+  <rect x="19" y="43" width="26" height="3" rx="1" fill="#080810"/>
+  <rect x="19" y="43" width="10" height="3" rx="1" fill="#00FF88" opacity="0.6"/>
+  <rect x="30" y="43" width="5" height="3" rx="1" fill="#FF0033" opacity="0.5"/>
+  <rect x="36" y="43" width="9" height="3" rx="1" fill="#0033FF" opacity="0.4"/>
+
+  <!-- Outer border — triple chromatic -->
+  <rect x="10" y="10" width="44" height="44" rx="11" fill="none" stroke="#FF0033" stroke-width="1.5" opacity="0.4"/>
+  <rect x="10" y="10" width="44" height="44" rx="11" fill="none" stroke="#00FF88" stroke-width="1" opacity="0.5"/>
+  <rect x="10" y="10" width="44" height="44" rx="11" fill="none" stroke="#0033FF" stroke-width="0.5" opacity="0.35"/>
+
+  <!-- Corner data readouts -->
+  <path d="M10 20 L10 12 L18 12" fill="none" stroke="#00FF88" stroke-width="1.5" stroke-linecap="square" opacity="0.8"/>
+  <path d="M54 20 L54 12 L46 12" fill="none" stroke="#FF0033" stroke-width="1.5" stroke-linecap="square" opacity="0.8"/>
+  <path d="M10 44 L10 52 L18 52" fill="none" stroke="#FF0033" stroke-width="1.5" stroke-linecap="square" opacity="0.8"/>
+  <path d="M54 44 L54 52 L46 52" fill="none" stroke="#00FF88" stroke-width="1.5" stroke-linecap="square" opacity="0.8"/>
+
+  <!-- Stray pixel corruption -->
+  <rect x="8" y="22" width="2" height="2" fill="#00FF88" opacity="0.6"/>
+  <rect x="54" y="35" width="2" height="1" fill="#FF0033" opacity="0.5"/>
+  <rect x="8" y="40" width="1.5" height="3" fill="#0033FF" opacity="0.4"/>
+  <rect x="55" y="18" width="2" height="1.5" fill="#00FF88" opacity="0.5"/>
+</svg>

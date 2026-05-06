@@ -1,0 +1,110 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="nj-glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="nj-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="nj-body" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2A0030"/>
+      <stop offset="50%" stop-color="#1A001E"/>
+      <stop offset="100%" stop-color="#0D000F"/>
+    </linearGradient>
+    <linearGradient id="nj-wrap" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF1493"/>
+      <stop offset="100%" stop-color="#CC0077"/>
+    </linearGradient>
+    <linearGradient id="nj-eye-band" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1A0020"/>
+      <stop offset="100%" stop-color="#0D0012"/>
+    </linearGradient>
+    <radialGradient id="nj-eye" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="35%" stop-color="#FF1493"/>
+      <stop offset="100%" stop-color="#CC0077" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nj-slash" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF1493" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#FF1493" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="nj-shuriken" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF1493"/>
+      <stop offset="100%" stop-color="#FF69B4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Dark ambient glow -->
+  <rect x="8" y="8" width="48" height="48" rx="12" fill="#FF1493" opacity="0.05" filter="url(#nj-glow)"/>
+
+  <!-- Main dark body -->
+  <rect x="10" y="10" width="44" height="44" rx="11" fill="url(#nj-body)"/>
+
+  <!-- Fabric wrap texture lines - diagonal -->
+  <line x1="10" y1="15" x2="20" y2="10" stroke="#FF1493" stroke-width="0.4" opacity="0.15"/>
+  <line x1="10" y1="22" x2="29" y2="10" stroke="#FF1493" stroke-width="0.4" opacity="0.12"/>
+  <line x1="10" y1="30" x2="38" y2="10" stroke="#FF1493" stroke-width="0.4" opacity="0.1"/>
+  <line x1="10" y1="38" x2="47" y2="10" stroke="#FF1493" stroke-width="0.4" opacity="0.12"/>
+  <line x1="10" y1="46" x2="54" y2="18" stroke="#FF1493" stroke-width="0.4" opacity="0.1"/>
+  <line x1="20" y1="54" x2="54" y2="26" stroke="#FF1493" stroke-width="0.4" opacity="0.12"/>
+  <line x1="30" y1="54" x2="54" y2="35" stroke="#FF1493" stroke-width="0.4" opacity="0.1"/>
+  <line x1="40" y1="54" x2="54" y2="44" stroke="#FF1493" stroke-width="0.4" opacity="0.15"/>
+
+  <!-- Head wrap / hood top -->
+  <rect x="10" y="10" width="44" height="12" rx="11" fill="url(#nj-wrap)" opacity="0.9"/>
+  <!-- Hood fold shadow -->
+  <rect x="10" y="19" width="44" height="4" rx="0" fill="#000000" opacity="0.3"/>
+
+  <!-- Forehead band stripe -->
+  <rect x="10" y="21" width="44" height="3" rx="1.5" fill="url(#nj-wrap)" opacity="0.7"/>
+
+  <!-- Eye band / mask -->
+  <rect x="13" y="26" width="38" height="12" rx="4" fill="url(#nj-eye-band)"/>
+
+  <!-- Slit eyes -->
+  <ellipse cx="24" cy="32" rx="5.5" ry="3" fill="url(#nj-eye)" filter="url(#nj-soft)"/>
+  <ellipse cx="24" cy="32" rx="2.5" ry="1.5" fill="#FF1493" opacity="0.7"/>
+  <ellipse cx="24" cy="32" rx="1" ry="0.8" fill="#FFFFFF"/>
+
+  <ellipse cx="40" cy="32" rx="5.5" ry="3" fill="url(#nj-eye)" filter="url(#nj-soft)"/>
+  <ellipse cx="40" cy="32" rx="2.5" ry="1.5" fill="#FF1493" opacity="0.7"/>
+  <ellipse cx="40" cy="32" rx="1" ry="0.8" fill="#FFFFFF"/>
+
+  <!-- Eye band top/bottom edges glow -->
+  <rect x="13" y="26" width="38" height="1" rx="0.5" fill="#FF1493" opacity="0.4"/>
+  <rect x="13" y="37" width="38" height="1" rx="0.5" fill="#FF1493" opacity="0.4"/>
+
+  <!-- Face wrap / scarf covering mouth area -->
+  <rect x="13" y="39" width="38" height="12" rx="3" fill="#1A0020" opacity="0.9"/>
+  <!-- Scarf fold lines -->
+  <line x1="13" y1="43" x2="51" y2="43" stroke="#FF1493" stroke-width="0.6" opacity="0.25"/>
+  <line x1="13" y1="47" x2="51" y2="47" stroke="#FF1493" stroke-width="0.6" opacity="0.2"/>
+
+  <!-- Bottom wrap band -->
+  <rect x="10" y="50" width="44" height="4" rx="2" fill="url(#nj-wrap)" opacity="0.8"/>
+
+  <!-- Side shuriken emblem left -->
+  <g transform="translate(10,32) rotate(45)">
+    <rect x="-4" y="-1.5" width="8" height="3" rx="1" fill="url(#nj-shuriken)" opacity="0.7"/>
+    <rect x="-1.5" y="-4" width="3" height="8" rx="1" fill="url(#nj-shuriken)" opacity="0.7"/>
+  </g>
+
+  <!-- Side shuriken emblem right -->
+  <g transform="translate(54,32) rotate(45)">
+    <rect x="-4" y="-1.5" width="8" height="3" rx="1" fill="url(#nj-shuriken)" opacity="0.7"/>
+    <rect x="-1.5" y="-4" width="3" height="8" rx="1" fill="url(#nj-shuriken)" opacity="0.7"/>
+  </g>
+
+  <!-- Slash mark accent -->
+  <line x1="22" y1="42" x2="28" y2="48" stroke="#FF1493" stroke-width="1.5" opacity="0.5" stroke-linecap="round"/>
+  <line x1="26" y1="42" x2="32" y2="48" stroke="#FF1493" stroke-width="1.5" opacity="0.3" stroke-linecap="round"/>
+
+  <!-- Outer shell neon border -->
+  <rect x="10" y="10" width="44" height="44" rx="11" fill="none" stroke="#FF1493" stroke-width="1.2" opacity="0.6" filter="url(#nj-soft)"/>
+
+  <!-- Corner slashes -->
+  <path d="M10 18 L10 12 L16 12" fill="none" stroke="#FF1493" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+  <path d="M54 18 L54 12 L48 12" fill="none" stroke="#FF1493" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+</svg>

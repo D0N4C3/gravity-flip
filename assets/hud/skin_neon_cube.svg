@@ -1,0 +1,104 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="nc-glow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="nc-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="nc-face-top" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE000" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#FF8800" stop-opacity="0.4"/>
+    </linearGradient>
+    <linearGradient id="nc-face-front" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A1400"/>
+      <stop offset="100%" stop-color="#0A0A00"/>
+    </linearGradient>
+    <linearGradient id="nc-face-side" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFE000" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#FF8800" stop-opacity="0.2"/>
+    </linearGradient>
+    <radialGradient id="nc-core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFE000" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#FF8800" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#FF0088" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nc-inner" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#FFE000" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="nc-edge-top" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF0088"/>
+      <stop offset="33%" stop-color="#FFE000"/>
+      <stop offset="66%" stop-color="#00EEFF"/>
+      <stop offset="100%" stop-color="#FF0088"/>
+    </linearGradient>
+    <linearGradient id="nc-edge-bottom" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00EEFF"/>
+      <stop offset="50%" stop-color="#FF0088"/>
+      <stop offset="100%" stop-color="#FFE000"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer pulse glow rings -->
+  <rect x="6" y="6" width="52" height="52" rx="8" fill="none" stroke="#FFE000" stroke-width="1" opacity="0.15" filter="url(#nc-glow)"/>
+  <rect x="3" y="3" width="58" height="58" rx="10" fill="none" stroke="#FF0088" stroke-width="0.5" opacity="0.1" filter="url(#nc-glow)"/>
+
+  <!-- 3D Cube — isometric style -->
+  <!-- Top face -->
+  <polygon points="32,8 56,20 56,22 32,10" fill="#FFE000" opacity="0.0"/>
+  <polygon points="32,8 8,20 8,22 32,10" fill="#FFE000" opacity="0.0"/>
+
+  <!-- Front face (main) -->
+  <rect x="12" y="20" width="40" height="32" rx="4" fill="url(#nc-face-front)"/>
+
+  <!-- Side face (right) - isometric illusion -->
+  <polygon points="52,20 58,16 58,48 52,52" fill="url(#nc-face-side)" rx="2"/>
+
+  <!-- Top face -->
+  <polygon points="12,20 52,20 58,16 18,16" fill="url(#nc-face-top)"/>
+
+  <!-- Inner ambient fill -->
+  <rect x="12" y="20" width="40" height="32" rx="4" fill="url(#nc-inner)"/>
+
+  <!-- Wireframe inner grid -->
+  <line x1="12" y1="28" x2="52" y2="28" stroke="#FFE000" stroke-width="0.5" opacity="0.2"/>
+  <line x1="12" y1="36" x2="52" y2="36" stroke="#FFE000" stroke-width="0.5" opacity="0.2"/>
+  <line x1="12" y1="44" x2="52" y2="44" stroke="#FFE000" stroke-width="0.5" opacity="0.2"/>
+  <line x1="22" y1="20" x2="22" y2="52" stroke="#FFE000" stroke-width="0.5" opacity="0.2"/>
+  <line x1="32" y1="20" x2="32" y2="52" stroke="#FFE000" stroke-width="0.5" opacity="0.2"/>
+  <line x1="42" y1="20" x2="42" y2="52" stroke="#FFE000" stroke-width="0.5" opacity="0.2"/>
+
+  <!-- Central glowing core -->
+  <circle cx="32" cy="36" r="10" fill="url(#nc-core)" filter="url(#nc-soft)"/>
+  <circle cx="32" cy="36" r="5" fill="#FFE000" opacity="0.8" filter="url(#nc-soft)"/>
+  <circle cx="32" cy="36" r="2.5" fill="#FFFFFF"/>
+  <!-- Core inner sparkle -->
+  <line x1="32" y1="32" x2="32" y2="40" stroke="#FFFFFF" stroke-width="0.8" opacity="0.6"/>
+  <line x1="28" y1="36" x2="36" y2="36" stroke="#FFFFFF" stroke-width="0.8" opacity="0.6"/>
+  <line x1="29.5" y1="33.5" x2="34.5" y2="38.5" stroke="#FFFFFF" stroke-width="0.5" opacity="0.4"/>
+  <line x1="34.5" y1="33.5" x2="29.5" y2="38.5" stroke="#FFFFFF" stroke-width="0.5" opacity="0.4"/>
+
+  <!-- Front face neon edge — rainbow gradient -->
+  <rect x="12" y="20" width="40" height="32" rx="4" fill="none" stroke="url(#nc-edge-top)" stroke-width="2" filter="url(#nc-soft)"/>
+
+  <!-- Top face edges -->
+  <line x1="18" y1="16" x2="58" y2="16" stroke="#FFE000" stroke-width="1.5" opacity="0.7" filter="url(#nc-soft)"/>
+  <line x1="18" y1="16" x2="12" y2="20" stroke="#FF0088" stroke-width="1.5" opacity="0.7" filter="url(#nc-soft)"/>
+  <line x1="58" y1="16" x2="52" y2="20" stroke="#00EEFF" stroke-width="1.5" opacity="0.7" filter="url(#nc-soft)"/>
+
+  <!-- Right face edges -->
+  <line x1="58" y1="16" x2="58" y2="48" stroke="url(#nc-edge-bottom)" stroke-width="1.5" opacity="0.8" filter="url(#nc-soft)"/>
+  <line x1="58" y1="48" x2="52" y2="52" stroke="#FF0088" stroke-width="1.5" opacity="0.7" filter="url(#nc-soft)"/>
+
+  <!-- Corner glow dots -->
+  <circle cx="12" cy="20" r="2" fill="#FF0088" filter="url(#nc-glow)" opacity="0.9"/>
+  <circle cx="52" cy="20" r="2" fill="#FFE000" filter="url(#nc-glow)" opacity="0.9"/>
+  <circle cx="12" cy="52" r="2" fill="#00EEFF" filter="url(#nc-glow)" opacity="0.9"/>
+  <circle cx="52" cy="52" r="2" fill="#FFE000" filter="url(#nc-glow)" opacity="0.9"/>
+  <circle cx="18" cy="16" r="2" fill="#FF0088" filter="url(#nc-glow)" opacity="0.7"/>
+  <circle cx="58" cy="16" r="2" fill="#00EEFF" filter="url(#nc-glow)" opacity="0.7"/>
+  <circle cx="58" cy="48" r="2" fill="#FF0088" filter="url(#nc-glow)" opacity="0.7"/>
+</svg>

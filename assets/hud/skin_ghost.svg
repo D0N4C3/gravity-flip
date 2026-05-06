@@ -1,0 +1,96 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="gh-glow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="gh-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="gh-blur-heavy" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <radialGradient id="gh-body" cx="50%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#EEEEFF" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#AA88FF" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#6600CC" stop-opacity="0.3"/>
+    </radialGradient>
+    <radialGradient id="gh-aura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#AA88FF" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#6600CC" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gh-eye" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="40%" stop-color="#CC99FF"/>
+      <stop offset="100%" stop-color="#6600CC" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gh-tail" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#AA88FF" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#6600CC" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="gh-orb" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#CC99FF" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#6600CC" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Outer ethereal aura -->
+  <ellipse cx="32" cy="30" rx="26" ry="28" fill="url(#gh-aura)" filter="url(#gh-blur-heavy)"/>
+
+  <!-- Ghost tail / bottom wisps -->
+  <path d="M16 46 Q14 54 18 58 Q20 62 22 58 Q24 54 24 50" fill="url(#gh-tail)" opacity="0.6"/>
+  <path d="M24 48 Q23 56 27 60 Q29 63 31 59 Q33 56 32 51" fill="url(#gh-tail)" opacity="0.7"/>
+  <path d="M32 50 Q31 58 35 61 Q37 63 39 59 Q40 55 39 51" fill="url(#gh-tail)" opacity="0.6"/>
+  <path d="M39 48 Q38 55 42 58 Q44 61 46 57 Q47 53 45 49" fill="url(#gh-tail)" opacity="0.5"/>
+
+  <!-- Main ghost body — rounded top, wavy bottom -->
+  <path d="
+    M32 8
+    C18 8 10 18 10 30
+    C10 42 12 48 16 50
+    C18 52 20 50 22 48
+    C24 46 26 50 28 52
+    C29 54 31 54 32 52
+    C33 54 35 54 36 52
+    C38 50 40 46 42 48
+    C44 50 46 52 48 50
+    C52 48 54 42 54 30
+    C54 18 46 8 32 8
+    Z
+  " fill="url(#gh-body)" filter="url(#gh-soft)"/>
+
+  <!-- Body highlight top -->
+  <ellipse cx="32" cy="20" rx="14" ry="8" fill="#FFFFFF" opacity="0.15"/>
+
+  <!-- Floating particle orbs around body -->
+  <circle cx="10" cy="22" r="2.5" fill="url(#gh-orb)" filter="url(#gh-soft)" opacity="0.7"/>
+  <circle cx="8" cy="36" r="1.8" fill="url(#gh-orb)" filter="url(#gh-soft)" opacity="0.5"/>
+  <circle cx="54" cy="20" r="2" fill="url(#gh-orb)" filter="url(#gh-soft)" opacity="0.6"/>
+  <circle cx="57" cy="34" r="1.5" fill="url(#gh-orb)" filter="url(#gh-soft)" opacity="0.4"/>
+  <circle cx="22" cy="6" r="1.5" fill="url(#gh-orb)" filter="url(#gh-soft)" opacity="0.5"/>
+  <circle cx="42" cy="5" r="2" fill="url(#gh-orb)" filter="url(#gh-soft)" opacity="0.6"/>
+
+  <!-- Eyes — hollow dark circles with glow -->
+  <ellipse cx="24" cy="28" rx="5.5" ry="6" fill="#1A0030" opacity="0.85"/>
+  <ellipse cx="24" cy="28" rx="4" ry="4.5" fill="url(#gh-eye)" filter="url(#gh-soft)"/>
+  <ellipse cx="24" cy="28" rx="2" ry="2.5" fill="#AA66FF" opacity="0.8"/>
+  <ellipse cx="24" cy="28" rx="0.8" ry="1" fill="#FFFFFF"/>
+  <ellipse cx="22.5" cy="26.5" rx="0.7" ry="0.6" fill="#FFFFFF" opacity="0.8"/>
+
+  <ellipse cx="40" cy="28" rx="5.5" ry="6" fill="#1A0030" opacity="0.85"/>
+  <ellipse cx="40" cy="28" rx="4" ry="4.5" fill="url(#gh-eye)" filter="url(#gh-soft)"/>
+  <ellipse cx="40" cy="28" rx="2" ry="2.5" fill="#AA66FF" opacity="0.8"/>
+  <ellipse cx="40" cy="28" rx="0.8" ry="1" fill="#FFFFFF"/>
+  <ellipse cx="38.5" cy="26.5" rx="0.7" ry="0.6" fill="#FFFFFF" opacity="0.8"/>
+
+  <!-- Mouth — wavy line -->
+  <path d="M26 37 Q28 40 32 38 Q36 36 38 38" fill="none" stroke="#AA66FF" stroke-width="1.5" opacity="0.6" stroke-linecap="round"/>
+
+  <!-- Body inner glow pulse -->
+  <ellipse cx="32" cy="32" rx="12" ry="14" fill="#AA88FF" opacity="0.08" filter="url(#gh-glow)"/>
+
+  <!-- Top crown glow -->
+  <ellipse cx="32" cy="10" rx="8" ry="4" fill="#CC99FF" opacity="0.3" filter="url(#gh-glow)"/>
+</svg>

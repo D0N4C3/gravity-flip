@@ -1,0 +1,113 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="rb-glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="rb-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="rb-body" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F5FF"/>
+      <stop offset="100%" stop-color="#0060CC"/>
+    </linearGradient>
+    <linearGradient id="rb-panel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#001830"/>
+      <stop offset="100%" stop-color="#003060"/>
+    </linearGradient>
+    <linearGradient id="rb-antenna" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00F5FF"/>
+      <stop offset="100%" stop-color="#0080FF"/>
+    </linearGradient>
+    <radialGradient id="rb-eye" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="45%" stop-color="#00F5FF"/>
+      <stop offset="100%" stop-color="#0044AA" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="rb-chest" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00F5FF" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#0080FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rb-ear-l" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0080FF"/>
+      <stop offset="100%" stop-color="#00F5FF"/>
+    </linearGradient>
+    <linearGradient id="rb-ear-r" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00F5FF"/>
+      <stop offset="100%" stop-color="#0080FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ambient outer glow -->
+  <rect x="8" y="8" width="48" height="48" rx="14" fill="#00F5FF" opacity="0.06" filter="url(#rb-glow)"/>
+
+  <!-- Side ear/panel left -->
+  <rect x="4" y="20" width="8" height="14" rx="3" fill="url(#rb-ear-l)" filter="url(#rb-soft)" opacity="0.9"/>
+  <rect x="5.5" y="23" width="5" height="2" rx="1" fill="#FFFFFF" opacity="0.4"/>
+  <rect x="5.5" y="27" width="5" height="2" rx="1" fill="#FFFFFF" opacity="0.4"/>
+
+  <!-- Side ear/panel right -->
+  <rect x="52" y="20" width="8" height="14" rx="3" fill="url(#rb-ear-r)" filter="url(#rb-soft)" opacity="0.9"/>
+  <rect x="53.5" y="23" width="5" height="2" rx="1" fill="#FFFFFF" opacity="0.4"/>
+  <rect x="53.5" y="27" width="5" height="2" rx="1" fill="#FFFFFF" opacity="0.4"/>
+
+  <!-- Antenna base -->
+  <rect x="29" y="5" width="6" height="8" rx="2" fill="url(#rb-antenna)" filter="url(#rb-soft)"/>
+  <!-- Antenna orb -->
+  <circle cx="32" cy="4" r="3.5" fill="#00F5FF" filter="url(#rb-glow)"/>
+  <circle cx="32" cy="4" r="2" fill="#FFFFFF" opacity="0.9"/>
+
+  <!-- Main body shell -->
+  <rect x="10" y="11" width="44" height="44" rx="12" fill="url(#rb-body)" filter="url(#rb-soft)"/>
+
+  <!-- Metallic sheen highlight -->
+  <rect x="10" y="11" width="44" height="18" rx="12" fill="#FFFFFF" opacity="0.07"/>
+
+  <!-- Inner face panel -->
+  <rect x="14" y="15" width="36" height="36" rx="9" fill="url(#rb-panel)"/>
+
+  <!-- Top accent bar -->
+  <rect x="14" y="15" width="36" height="4" rx="2" fill="#00F5FF" opacity="0.6"/>
+
+  <!-- Grid lines on panel -->
+  <line x1="14" y1="28" x2="50" y2="28" stroke="#00F5FF" stroke-width="0.4" opacity="0.2"/>
+  <line x1="14" y1="35" x2="50" y2="35" stroke="#00F5FF" stroke-width="0.4" opacity="0.15"/>
+  <line x1="14" y1="42" x2="50" y2="42" stroke="#00F5FF" stroke-width="0.4" opacity="0.2"/>
+  <line x1="29" y1="19" x2="29" y2="51" stroke="#00F5FF" stroke-width="0.4" opacity="0.1"/>
+  <line x1="35" y1="19" x2="35" y2="51" stroke="#00F5FF" stroke-width="0.4" opacity="0.1"/>
+
+  <!-- Left eye -->
+  <circle cx="24" cy="30" r="6" fill="url(#rb-eye)" filter="url(#rb-soft)"/>
+  <circle cx="24" cy="30" r="3.5" fill="#00F5FF" opacity="0.6"/>
+  <circle cx="24" cy="30" r="2" fill="#FFFFFF"/>
+  <circle cx="22.5" cy="28.5" r="0.8" fill="#FFFFFF" opacity="0.9"/>
+
+  <!-- Right eye -->
+  <circle cx="40" cy="30" r="6" fill="url(#rb-eye)" filter="url(#rb-soft)"/>
+  <circle cx="40" cy="30" r="3.5" fill="#00F5FF" opacity="0.6"/>
+  <circle cx="40" cy="30" r="2" fill="#FFFFFF"/>
+  <circle cx="38.5" cy="28.5" r="0.8" fill="#FFFFFF" opacity="0.9"/>
+
+  <!-- Separator bar below eyes -->
+  <rect x="18" y="39" width="28" height="1.5" rx="0.75" fill="#00F5FF" opacity="0.3"/>
+
+  <!-- Chest core reactor -->
+  <circle cx="32" cy="45" r="4" fill="url(#rb-chest)" filter="url(#rb-soft)"/>
+  <circle cx="32" cy="45" r="2.5" fill="#00F5FF" opacity="0.8"/>
+  <circle cx="32" cy="45" r="1.2" fill="#FFFFFF"/>
+
+  <!-- Bottom thruster vents -->
+  <rect x="17" y="51" width="7" height="3" rx="1.5" fill="#00F5FF" opacity="0.7" filter="url(#rb-soft)"/>
+  <rect x="28" y="51" width="8" height="3" rx="1.5" fill="#00F5FF" opacity="0.9" filter="url(#rb-soft)"/>
+  <rect x="40" y="51" width="7" height="3" rx="1.5" fill="#00F5FF" opacity="0.7" filter="url(#rb-soft)"/>
+
+  <!-- Corner bracket marks -->
+  <path d="M10 22 L10 14 L18 14" fill="none" stroke="#00F5FF" stroke-width="1.8" stroke-linecap="round" opacity="0.9" filter="url(#rb-soft)"/>
+  <path d="M54 22 L54 14 L46 14" fill="none" stroke="#00F5FF" stroke-width="1.8" stroke-linecap="round" opacity="0.9" filter="url(#rb-soft)"/>
+  <path d="M10 42 L10 50 L18 50" fill="none" stroke="#00F5FF" stroke-width="1.8" stroke-linecap="round" opacity="0.9" filter="url(#rb-soft)"/>
+  <path d="M54 42 L54 50 L46 50" fill="none" stroke="#00F5FF" stroke-width="1.8" stroke-linecap="round" opacity="0.9" filter="url(#rb-soft)"/>
+
+  <!-- Outer shell border -->
+  <rect x="10" y="11" width="44" height="44" rx="12" fill="none" stroke="#00F5FF" stroke-width="1" opacity="0.5"/>
+</svg>
