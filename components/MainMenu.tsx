@@ -8,7 +8,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import COLORS from '@/constants/colors';
-import { ACHIEVEMENTS } from '@/constants/game';
+import { ACHIEVEMENTS, MILESTONE_REWARDS } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
 
 interface Props {
@@ -25,7 +25,7 @@ interface Props {
 
 export default function MainMenu({ onPlay, onSkins, onShop, onLeaderboard, onSettings, onChallenges, onAchievements, onDailyRewards, onUpgrades }: Props) {
   const insets = useSafeAreaInsets();
-  const { bestScore, coins, dailyChallenges, achievedIds, dailyRewardClaimed } = useGame();
+  const { bestScore, coins, dailyChallenges, achievedIds, dailyRewardClaimed, milestoneClaimedIds } = useGame();
 
   const logoAnim = useRef(new Animated.Value(0)).current;
   const buttonsAnim = useRef(new Animated.Value(0)).current;
@@ -40,6 +40,8 @@ export default function MainMenu({ onPlay, onSkins, onShop, onLeaderboard, onSet
 
   const newAchievements = ACHIEVEMENTS.filter(a => !achievedIds.includes(a.id)).length;
   const canClaimReward = !dailyRewardClaimed;
+  const upcomingMilestones = MILESTONE_REWARDS.filter(m => !milestoneClaimedIds.includes(m.id)).slice(0, 2);
+  const claimedMilestones = milestoneClaimedIds.length;
 
   useEffect(() => {
     Animated.sequence([
@@ -210,6 +212,20 @@ export default function MainMenu({ onPlay, onSkins, onShop, onLeaderboard, onSet
         </TouchableOpacity>
       </Animated.View>
 
+
+
+      <View style={styles.milestonePanel}>
+        <View style={styles.milestoneHeader}>
+          <Text style={styles.milestoneTitle}>MILESTONES</Text>
+          <Text style={styles.milestoneClaimed}>{claimedMilestones}/{MILESTONE_REWARDS.length} claimed</Text>
+        </View>
+        {upcomingMilestones.map((m) => (
+          <View key={m.id} style={styles.milestoneRow}>
+            <Text style={styles.milestoneScore}>SCORE {m.score}</Text>
+            <Text style={styles.milestoneText}>{m.title}</Text>
+          </View>
+        ))}
+      </View>
       <Text style={styles.tapHint}>TAP SCREEN TO FLIP GRAVITY</Text>
     </LinearGradient>
   );
@@ -282,5 +298,12 @@ const styles = StyleSheet.create({
     borderRadius: 4, backgroundColor: COLORS.neonYellow,
     borderWidth: 1.5, borderColor: '#070E1C',
   },
+  milestonePanel: { width: '92%', borderWidth: 1, borderColor: 'rgba(0,245,255,0.15)', backgroundColor: 'rgba(0,245,255,0.05)', borderRadius: 14, padding: 12, gap: 6 },
+  milestoneHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  milestoneTitle: { fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: 2, color: COLORS.neonCyan },
+  milestoneClaimed: { fontFamily: 'Inter_500Medium', fontSize: 11, color: COLORS.textMuted },
+  milestoneRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  milestoneScore: { fontFamily: 'Inter_700Bold', fontSize: 10, color: COLORS.neonYellow, width: 72 },
+  milestoneText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: COLORS.textPrimary, flex: 1 },
   tapHint: { fontFamily: 'Inter_400Regular', fontSize: 9, color: COLORS.textMuted, letterSpacing: 3 },
 });
