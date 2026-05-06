@@ -1080,23 +1080,14 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
             left: coin.x - R, top: coin.y - R,
             width: R * 2, height: R * 2,
             borderRadius: R,
-            backgroundColor: cColor,
-            borderWidth: coin.rare ? 2 : 1.5,
-            borderColor: coin.rare ? '#FFFFFF' : coin.highValue ? '#FFCC88' : 'rgba(255,255,255,0.4)',
             shadowColor: cColor, shadowOffset: { width: 0, height: 0 },
             shadowOpacity: coin.rare ? 1 : coin.highValue ? 0.9 : 0.85,
             shadowRadius: coin.rare ? 14 : coin.highValue ? 10 : 7,
           }}>
-            {coin.rare && (
-              <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 9, fontWeight: '900', color: '#A06000', lineHeight: 10 }}>★</Text>
-              </View>
-            )}
-            {coin.highValue && (
-              <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 8, fontWeight: '900', color: '#7A3500', lineHeight: 9 }}>3</Text>
-              </View>
-            )}
+            <HudAssetIcon
+              name={coin.rare ? 'coin_legendary' : coin.highValue ? 'coin_rare' : 'coin_standard'}
+              size={R * 2}
+            />
           </View>
         );
       })}
@@ -1287,6 +1278,7 @@ function PowerupIcon({ type, size }: { type: PowerupType; size: number }) {
   if (type === 'shield') return <HudAssetIcon name="powerup_shield" size={size} />;
   if (type === 'slowmo') return <HudAssetIcon name="powerup_slowmo" size={size} />;
   if (type === 'magnet') return <HudAssetIcon name="powerup_magnet" size={size} />;
+  if (type === 'double_score') return <HudAssetIcon name="powerup_doublescore" size={size} />;
   return <Ionicons name={POWERUPS[type].icon as any} size={size} color={POWERUPS[type].color} />;
 }
 
@@ -1312,6 +1304,16 @@ function SpikeGroup({ count, fromFloor, x, floorTop, ceilBot, color }: {
   floorTop: number; ceilBot: number; color: string;
 }) {
   const spikes = Array.from({ length: count }, (_, i) => i);
+  if (count === 1) {
+    return (
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', left: x - 10, top: fromFloor ? floorTop - 20 : ceilBot, opacity: 0.95 }}
+      >
+        <HudAssetIcon name={fromFloor ? 'obstacle_floor_spikes' : 'obstacle_ceiling_spikes'} size={20} />
+      </View>
+    );
+  }
   if (fromFloor) {
     return (
       <View style={{ position: 'absolute', left: x, top: floorTop - SPIKE_H, flexDirection: 'row', gap: 2 }} pointerEvents="none">
@@ -1364,9 +1366,7 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
         transform: [{ rotate: `${obs.rotation ?? 0}deg` }],
         alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent',
       }}>
-        <View style={{ width: BLADE_R * 2 - 6, height: 2.5, backgroundColor: color, position: 'absolute' }} />
-        <View style={{ width: 2.5, height: BLADE_R * 2 - 6, backgroundColor: color, position: 'absolute' }} />
-        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+        <HudAssetIcon name="obstacle_rotating_blade" size={BLADE_R * 2} />
       </View>
     );
   }
@@ -1429,6 +1429,9 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
           shadowRadius: isOn ? 14 : 3,
         }} />
         {/* Core bright line */}
+        <View style={{ position: 'absolute', left: obs.x - 13, top: top - 12, opacity: isOn ? 1 : 0.55 }}>
+          <HudAssetIcon name="obstacle_laser_gate" size={26} />
+        </View>
         <View style={{
           position: 'absolute', left: obs.x - 0.5, top,
           width: 1, height: beamH,
