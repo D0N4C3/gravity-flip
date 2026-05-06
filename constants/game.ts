@@ -190,6 +190,30 @@ export const CHALLENGE_POOL: DailyChallenge[] = [
 
 export const SCORE_MILESTONES = [10, 25, 50, 75, 120, 200, 350, 500];
 
+export type MilestoneRewardKind = 'skin' | 'trail' | 'effect' | 'coins' | 'gems';
+
+export interface MilestoneReward {
+  id: string;
+  score: number;
+  kind: MilestoneRewardKind;
+  rewardId?: string;
+  title: string;
+  description: string;
+  amount?: number;
+}
+
+export const MILESTONE_REWARDS: MilestoneReward[] = [
+  { id: 'score_25_skin_robot', score: 25, kind: 'skin', rewardId: 'robot', title: 'Robot Skin', description: 'Unlock the Robot skin.' },
+  { id: 'score_50_trail_fire', score: 50, kind: 'trail', rewardId: 'fire', title: 'Fire Trail', description: 'Unlock the Fire Blaze trail.' },
+  { id: 'score_75_effect_glitch', score: 75, kind: 'effect', rewardId: 'glitch_burst', title: 'Glitch Burst FX', description: 'Unlock a glitch burst spawn effect.' },
+  { id: 'score_100_skin_glitch', score: 100, kind: 'skin', rewardId: 'glitch', title: 'Glitch Skin', description: 'Unlock the Glitch skin.' },
+  { id: 'score_150_trail_ice', score: 150, kind: 'trail', rewardId: 'ice', title: 'Ice Trail', description: 'Unlock the Ice Crystal trail.' },
+  { id: 'score_200_coins', score: 200, kind: 'coins', amount: 250, title: 'Coin Cache', description: 'Receive 250 bonus coins.' },
+  { id: 'score_275_effect_prismatic', score: 275, kind: 'effect', rewardId: 'prismatic_warp', title: 'Prismatic Warp FX', description: 'Unlock a prismatic flip effect.' },
+  { id: 'score_350_trail_rainbow', score: 350, kind: 'trail', rewardId: 'rainbow', title: 'Rainbow Trail', description: 'Unlock the Rainbow trail.' },
+  { id: 'score_500_gems', score: 500, kind: 'gems', amount: 25, title: 'Gem Bundle', description: 'Receive 25 gems.' },
+];
+
 // ─── Player Upgrades ───────────────────────────────────────────────────────────
 
 export interface UpgradeDef {
