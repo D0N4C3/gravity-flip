@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import COLORS from '@/constants/colors';
-import { UPGRADES, PlayerUpgrades, BALANCING } from '@/constants/game';
+import { UPGRADES, PlayerUpgrades } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
 
 interface Props {
@@ -144,7 +144,7 @@ export default function UpgradesModal({ visible, onClose }: Props) {
               <View style={styles.infoBox}>
                 <Ionicons name="information-circle-outline" size={14} color={COLORS.textMuted} />
                 <Text style={styles.infoText}>
-                  Upgrades are permanent and apply to every run. Mid-tier upgrades trend near {BALANCING.economy.midTierPriceTarget} coins, high-tier near {BALANCING.economy.highTierPriceTarget}.
+                  Upgrades are permanent and apply to every run. Earn coins by playing and collecting rewards.
                 </Text>
               </View>
             </ScrollView>

@@ -129,27 +129,6 @@ export default function SettingsModal({ visible, onClose }: Props) {
               </View>
             </View>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>ACCESSIBILITY</Text>
-              <View style={styles.settingsCard}>
-                <SettingRow
-                  icon="move-outline"
-                  label="Reduced Motion"
-                  value={settings.reducedMotion}
-                  onToggle={v => updateSettings({ reducedMotion: v })}
-                  color={COLORS.neonOrange}
-                />
-                <View style={styles.divider} />
-                <SettingRow
-                  icon="flash-outline"
-                  label="Reduced Flashes"
-                  value={settings.reducedFlashes}
-                  onToggle={v => updateSettings({ reducedFlashes: v })}
-                  color={COLORS.neonPink}
-                />
-              </View>
-            </View>
-
             <View style={styles.infoCard}>
               <Ionicons name="information-circle-outline" size={16} color={COLORS.textMuted} />
               <Text style={styles.infoText}>Gravity Flip — Survive the Corridor</Text>

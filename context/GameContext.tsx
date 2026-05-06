@@ -5,7 +5,6 @@ import {
   DailyChallenge, ChallengeType, LifetimeStats,
   UPGRADES, PlayerUpgrades, DEFAULT_UPGRADES,
 } from '@/constants/game';
-import { POWERUP_DEFS } from '@/game/powerups';
 
 const STORAGE_KEYS = {
   BEST_SCORE: 'gf_best_score',
@@ -36,8 +35,6 @@ export interface GameSettings {
   music: boolean;
   sfx: boolean;
   vibration: boolean;
-  reducedMotion: boolean;
-  reducedFlashes: boolean;
 }
 
 export interface ChallengeProgress {
@@ -97,7 +94,6 @@ interface GameContextValue {
   recordRunStats: (stats: RunStats) => string[];
   claimDailyReward: () => number;
   upgradeAbility: (id: keyof PlayerUpgrades) => boolean;
-  powerupDefinitions: typeof POWERUP_DEFS;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -122,9 +118,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [selectedSkinId, setSelectedSkinId] = useState('default');
   const [selectedTrailId, setSelectedTrailId] = useState('neon');
-  const [settings, setSettings] = useState<GameSettings>({
-    music: true, sfx: true, vibration: true, reducedMotion: false, reducedFlashes: false,
-  });
+  const [settings, setSettings] = useState<GameSettings>({ music: true, sfx: true, vibration: true });
   const [totalRuns, setTotalRuns] = useState(0);
   const [coins, setCoins] = useState(0);
   const [dailyChallenges, setDailyChallenges] = useState<ChallengeState>({
@@ -155,9 +149,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (data[STORAGE_KEYS.LEADERBOARD]) setLeaderboard(JSON.parse(data[STORAGE_KEYS.LEADERBOARD]!));
       if (data[STORAGE_KEYS.SELECTED_SKIN]) setSelectedSkinId(data[STORAGE_KEYS.SELECTED_SKIN]!);
       if (data[STORAGE_KEYS.SELECTED_TRAIL]) setSelectedTrailId(data[STORAGE_KEYS.SELECTED_TRAIL]!);
-      if (data[STORAGE_KEYS.SETTINGS]) {
-        setSettings(prev => ({ ...prev, ...JSON.parse(data[STORAGE_KEYS.SETTINGS]!) }));
-      }
+      if (data[STORAGE_KEYS.SETTINGS]) setSettings(JSON.parse(data[STORAGE_KEYS.SETTINGS]!));
       if (data[STORAGE_KEYS.TOTAL_RUNS]) setTotalRuns(parseInt(data[STORAGE_KEYS.TOTAL_RUNS]!, 10));
       if (data[STORAGE_KEYS.COINS]) setCoins(parseInt(data[STORAGE_KEYS.COINS]!, 10));
       if (data[STORAGE_KEYS.LIFETIME_STATS]) setLifetimeStats(JSON.parse(data[STORAGE_KEYS.LIFETIME_STATS]!));
@@ -367,7 +359,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dailyRewardStreak, dailyRewardClaimed, upgrades,
     submitScore, selectSkin, selectTrail, updateSettings, getSkinById,
     addCoins, spendCoins, updateChallengeProgress, claimChallenge, recordRunStats, claimDailyReward, upgradeAbility,
-    powerupDefinitions: POWERUP_DEFS,
   }), [bestScore, leaderboard, selectedSkinId, selectedTrailId, settings, totalRuns,
     coins, unlockedSkins, unlockedTrails, dailyChallenges, lifetimeStats, achievedIds,
     dailyRewardStreak, dailyRewardClaimed, upgrades]);

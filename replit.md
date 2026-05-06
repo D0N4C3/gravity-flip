@@ -36,6 +36,8 @@ Preferred communication style: Simple, everyday language.
 
 **Game Loop:** The game runs entirely client-side in `components/GameScreen.tsx` using React Native's `Animated` API and `useRef`-based game state. No game engine is used — everything is built from scratch with React Native primitives and SVG.
 
+**Visual Assets:** 19 custom SVG assets in `assets/hud/` covering coins (3 tiers), obstacles (floor/ceiling spikes, rotating blade, laser gate), power-up pickups (shield, magnet, slowmo, double score), character skins (default, phantom, legendary), trails, and effects. Raw SVG strings are exported from `assets/hud/index.ts` (auto-generated); `components/GameSvgs.tsx` wraps them as `SvgXml`-based React components and is the single import point for all SVG rendering in GameScreen.
+
 **State Management:**
 - **Game context** (`context/GameContext.tsx`): Provides global persistent state (best score, coins, selected skin, leaderboard, settings, daily challenges). Persisted locally using `@react-native-async-storage/async-storage`.
 - **TanStack React Query** (`lib/query-client.ts`): Set up for server communication via the Express API, though not actively used for game data yet.

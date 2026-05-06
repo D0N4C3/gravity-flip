@@ -11,14 +11,18 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import {
+  CoinStandardSvg, CoinRareSvg, CoinLegendarySvg,
+  ObstacleFloorSpikesSvg, ObstacleCeilingSpikesSvg,
+  ObstacleRotatingBladeSvg, ObstacleLaserGateSvg,
+  PowerupSvg, CharacterSvg,
+} from '@/components/GameSvgs';
 import COLORS from '@/constants/colors';
 import {
   SKINS, TRAILS, GAME, ENVIRONMENTS, ENV_ORDER, POWERUPS,
-  PowerupType, EnvironmentId, ChallengeType, SCORE_MILESTONES, OBSTACLE_BEHAVIOR, OBSTACLE_STAGE_WEIGHTS,
+  PowerupType, EnvironmentId, ChallengeType, SCORE_MILESTONES,
 } from '@/constants/game';
-import { applyPowerup, consumeShieldHit, createPowerupManagerState, getActivePowerups, getPowerupEffects, POWERUP_DEFS, tickPowerups } from '@/game/powerups';
 import { useGame } from '@/context/GameContext';
-import { ChunkSpawner } from '@/game/generation/spawner';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -42,7 +46,6 @@ interface Obstacle {
   laserOn?: boolean; laserTimer?: number;
   laserCycleOn?: number; laserCycleOff?: number;
   laserFromFloor?: boolean;
-  telegraphing?: boolean;
   gapAtFloor?: boolean; // spike_wall: gap is at floor or ceiling
 }
 
@@ -88,7 +91,7 @@ interface Popup {
 }
 
 interface GState {
-  phase: 'playing' | 'dying' | 'dead';
+  phase: 'playing' | 'dead';
   onFloor: boolean;
   playerY: number; playerVelocity: number;
   scaleX: number; scaleY: number;
@@ -98,11 +101,13 @@ interface GState {
   scoreTimer: number;
   totalTime: number;
   reviveUsed: boolean;
-  reviveInvulnerableUntil: number;
   flipCooldown: number;
   // Power-ups
-  powerupState: ReturnType<typeof createPowerupManagerState>;
-  nextPowerupSpawnAt: number;
+  powerupShieldActive: boolean;
+  shieldHitsRemaining: number;
+  powerupSlowmoTime: number;
+  powerupDoubleScoreTime: number;
+  powerupMagnetTime: number;
   powerupPickups: PowerupPickup[];
   // Coins
   coins: CoinPickup[];
@@ -122,10 +127,6 @@ interface GState {
   nearMissTimer: number;
   nearMissCount: number;
   deathSlowmo: number;
-  deathTransitionTimer: number;
-  deathFlash: number;
-  deathImpactX: number;
-  deathImpactY: number;
   // Environment
   envIndex: number;
   envFlashTimer: number;
@@ -149,9 +150,9 @@ interface GState {
 
 const SPIKE_H = 32;
 const SPIKE_W = 13;
-const BLADE_R = OBSTACLE_BEHAVIOR.rotating_blade.radius;
-const MOVE_HH = OBSTACLE_BEHAVIOR.moving_spike.halfHeight;
-const MOVE_HW = OBSTACLE_BEHAVIOR.moving_spike.halfWidth;
+const BLADE_R = 21;
+const MOVE_HH = 17;
+const MOVE_HW = 11;
 const TRAIL_INTERVAL = 0.028;
 const DANGER_DIST = 60;
 const MAGNET_RANGE = 140;
@@ -205,7 +206,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const topPadding = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPadding = Platform.OS === 'web' ? 34 : insets.bottom;
 
-  const HEADER_H = topPadding + 48;
+  const HEADER_H = topPadding + 60;
   const WALL_T = GAME.WALL_THICKNESS;
   const P_SIZE = GAME.PLAYER_SIZE;
   const P_X = GAME.PLAYER_X;
@@ -224,17 +225,16 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     obstacles: [],
     speed: GAME.OBSTACLE_SPEED_INITIAL,
     nextObsTimer: 1.5, scoreTimer: 1,
-    totalTime: 0, reviveUsed: false, reviveInvulnerableUntil: 0,
+    totalTime: 0, reviveUsed: false,
     flipCooldown: 0,
-    powerupState: createPowerupManagerState(),
-    nextPowerupSpawnAt: 10 + Math.random() * 10,
+    powerupShieldActive: false, shieldHitsRemaining: 1,
+    powerupSlowmoTime: 0, powerupDoubleScoreTime: 0, powerupMagnetTime: 0,
     powerupPickups: [], coins: [], coinsCollected: 0,
     comboStreak: 0, comboDisplayTimer: 0,
     perfectFlipTimer: 0, perfectFlipCount: 0,
     flipCount: 0, maxCombo: 1,
     trail: [], bursts: [], flipRings: [], flipTrails: [],
     nearMissTimer: 0, nearMissCount: 0, deathSlowmo: 0,
-    deathTransitionTimer: 0, deathFlash: 0, deathImpactX: 0, deathImpactY: 0,
     envIndex: 0, envFlashTimer: 0, survivalTime: 0,
     bgFar: [], bgMid: [], bgNear: [],
     popup: null, dangerFloor: 0, dangerCeil: 0,
@@ -247,14 +247,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const lastTimeRef = useRef<number>(0);
   const isPausedRef = useRef(isPaused);
   const deadFiredRef = useRef(false);
-  const runSeedRef = useRef<number>((Date.now() ^ ((Math.random() * 0xffffffff) >>> 0)) >>> 0);
-  const spawnerRef = useRef<ChunkSpawner>(new ChunkSpawner(runSeedRef.current));
 
   const [score, setScore] = useState(0);
   const [renderTick, setRenderTick] = useState(0);
   const shakeAnim = useRef(new Animated.Value(0)).current;
-  const shakeAnimY = useRef(new Animated.Value(0)).current;
-  const deathFlashAnim = useRef(new Animated.Value(0)).current;
   const envFlashAnim = useRef(new Animated.Value(0)).current;
   const flipPulseAnim = useRef(new Animated.Value(1)).current;
   const popupAnim = useRef(new Animated.Value(0)).current;
@@ -286,11 +282,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   useImperativeHandle(ref, () => ({
     revive() {
       const g = gRef.current;
+      // Grant a 2-second shield so the player isn't instantly re-killed
       g.phase = 'playing';
       g.reviveUsed = true;
-      const now = Date.now();
-      g.reviveInvulnerableUntil = now + 1500;
-      applyPowerup(g.powerupState, 'shield', now, upgrades.shield_strength);
+      g.powerupShieldActive = true;
       g.deathSlowmo = 0;
       deadFiredRef.current = false;
       isPausedRef.current = false;
@@ -315,12 +310,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     const rawDelta = Math.min((timestamp - lastTimeRef.current) / 1000, 0.075);
     lastTimeRef.current = timestamp;
     const g = gRef.current;
-    if (g.phase === 'dead') return;
+    if (g.phase !== 'playing') return;
 
-    const powerEffects = getPowerupEffects(g.powerupState);
-    const inSlowmo = powerEffects.speed < 1 || g.deathSlowmo > 0;
-    const deathSlowFactor = settings.reducedMotion ? 0.5 : 0.12;
-    const slowFactor = g.deathSlowmo > 0 ? deathSlowFactor : powerEffects.speed;
+    const inSlowmo = g.powerupSlowmoTime > 0 || g.deathSlowmo > 0;
+    const slowFactor = inSlowmo ? (g.deathSlowmo > 0 ? 0.12 : 0.32) : 1;
     const dt = rawDelta * slowFactor;
     const speedNorm = Math.min((g.speed - GAME.OBSTACLE_SPEED_INITIAL) / (GAME.OBSTACLE_SPEED_MAX - GAME.OBSTACLE_SPEED_INITIAL), 1);
 
@@ -399,23 +392,20 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       obs.x -= g.speed * dt;
       if (obs.type === 'moving_spike') {
         obs.moveY = (obs.moveY ?? 0) + (obs.moveVelocity ?? 80) * dt;
-        const maxY = PLAY_H * OBSTACLE_BEHAVIOR.moving_spike.maxTravelRatio - MOVE_HH;
+        const maxY = PLAY_H / 2 - MOVE_HH - 10;
         if (Math.abs(obs.moveY) > maxY) {
           obs.moveVelocity = -(obs.moveVelocity ?? 80);
           obs.moveY = Math.sign(obs.moveY) * maxY;
         }
       }
       if (obs.type === 'rotating_blade') {
-        obs.rotation = ((obs.rotation ?? 0) + OBSTACLE_BEHAVIOR.rotating_blade.rotationSpeedDeg * dt) % 360;
+        obs.rotation = ((obs.rotation ?? 0) + 190 * dt) % 360;
       }
       if (obs.type === 'laser_gate') {
         obs.laserTimer = (obs.laserTimer ?? 0) - dt;
         if (obs.laserTimer <= 0) {
           obs.laserOn = !obs.laserOn;
-          obs.telegraphing = !obs.laserOn;
           obs.laserTimer = obs.laserOn ? (obs.laserCycleOn ?? 0.55) : (obs.laserCycleOff ?? 0.75);
-        } else if (!obs.laserOn) {
-          obs.telegraphing = (obs.laserTimer ?? 0) <= OBSTACLE_BEHAVIOR.laser_gate.telegraphWindow;
         }
       }
     }
@@ -428,10 +418,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     g.powerupPickups = g.powerupPickups.filter(p => p.x + 32 > 0);
 
     // ── Magnet attraction ──────────────────────────────────────────────────────
-    if (g.powerupState.active.magnet) {
+    if (g.powerupMagnetTime > 0) {
       const px = P_X + P_SIZE / 2;
       const py = g.playerY + P_SIZE / 2;
-      const effectiveMagnetRange = (MAGNET_RANGE + upgrades.magnet_radius * 55) * powerEffects.magnetRadius;
+      const effectiveMagnetRange = MAGNET_RANGE + upgrades.magnet_radius * 55;
       for (const coin of g.coins) {
         const dx = px - coin.x;
         const dy = py - coin.y;
@@ -446,19 +436,11 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     // ── Spawn obstacles ────────────────────────────────────────────────────────
     g.nextObsTimer -= dt;
     if (g.nextObsTimer <= 0) {
-      const spawnEvents = spawnerRef.current.spawn({ elapsedSec: g.totalTime });
-      for (const ev of spawnEvents) {
-        const hazardWeights = OBSTACLE_STAGE_WEIGHTS[ev.stage] ?? {};
-        const hazardType = ev.obstacle.type as keyof typeof hazardWeights;
-        const spawnWeight = typeof hazardWeights[hazardType] === 'number' ? hazardWeights[hazardType] as number : 1;
-        if (Math.random() <= spawnWeight) g.obstacles.push(spawnObstacleFromChunk(ev.obstacle));
-      }
+      const obs = spawnObstacle(g.totalTime, g.speed);
+      g.obstacles.push(obs);
 
-      if (Math.random() < GAME.COIN_SPAWN_CHANCE && spawnEvents.length) {
-        const anchor = g.obstacles[g.obstacles.length - 1];
-        if (anchor) spawnCoins(anchor, g);
-      }
-      if (g.totalTime >= g.nextPowerupSpawnAt) { spawnPowerup(g); g.nextPowerupSpawnAt = g.totalTime + 10 + Math.random() * 10; }
+      if (Math.random() < GAME.COIN_SPAWN_CHANCE) spawnCoins(obs, g);
+      if (Math.random() < GAME.POWERUP_SPAWN_CHANCE) spawnPowerup(g);
 
       const baseInterval = 380 / g.speed;
       g.nextObsTimer = Math.max(0.95, baseInterval);
@@ -469,7 +451,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     if (g.scoreTimer <= 0) {
       g.scoreTimer = 1;
       const comboMult = getComboMultiplier(g.comboStreak);
-      const doubleMult = powerEffects.score;
+      const doubleMult = g.powerupDoubleScoreTime > 0 ? 2 : 1;
       const upgradeBonus = upgrades.score_multiplier;
       const gained = comboMult * doubleMult + upgradeBonus;
       scoreRef.current += gained;
@@ -514,9 +496,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
     if (g.envFlashTimer > 0) g.envFlashTimer -= rawDelta;
 
-    tickPowerups(g.powerupState, Date.now());
-
     // ── Power-up timers ───────────────────────────────────────────────────────
+    if (g.powerupSlowmoTime > 0) g.powerupSlowmoTime -= rawDelta;
+    if (g.powerupDoubleScoreTime > 0) g.powerupDoubleScoreTime -= rawDelta;
+    if (g.powerupMagnetTime > 0) g.powerupMagnetTime -= rawDelta;
 
     // ── Perfect flip timer ────────────────────────────────────────────────────
     if (g.perfectFlipTimer > 0) {
@@ -563,16 +546,15 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
     let died = false;
     let nearMiss = false;
-    const isReviveImmune = Date.now() < g.reviveInvulnerableUntil;
     for (const obs of g.obstacles) {
       const hitboxes = getHitboxes(obs);
       for (const hb of hitboxes) {
         if (rectsOverlap(pH, hb)) {
-          if (isReviveImmune) {
-            showPopup(g, 'REVIVE IMMUNE', '#FFFFFF', 'sm');
-          } else if (g.powerupState.active.shield) {
-            const hitsLeft = consumeShieldHit(g.powerupState);
+          if (g.powerupShieldActive) {
+            g.shieldHitsRemaining -= 1;
+            if (g.shieldHitsRemaining <= 0) g.powerupShieldActive = false;
             spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, COLORS.neonCyan, 10);
+            const hitsLeft = g.shieldHitsRemaining;
             showPopup(g, hitsLeft > 0 ? `SHIELD BLOCK (${hitsLeft})` : 'SHIELD BREAK', COLORS.neonCyan, 'sm');
             if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           } else {
@@ -604,7 +586,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       };
       if (rectsOverlap(pH, coinRect)) {
         coin.collected = true;
-        const coinValue = coin.rare ? 4 : coin.highValue ? 2 : 1;
+        const coinValue = coin.rare ? 5 : coin.highValue ? 3 : 1;
         g.coinsCollected += coinValue;
         const burstColor = coin.rare ? '#FFE600' : coin.highValue ? '#FF9900' : getEnv(g).coinColor;
         spawnBurst(g, coin.x, coin.y, burstColor, coin.rare ? 12 : coin.highValue ? 7 : 5);
@@ -637,30 +619,18 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
     if (died && !deadFiredRef.current) {
       deadFiredRef.current = true;
-      g.phase = 'dying';
+      g.phase = 'dead';
       g.comboStreak = 0;
-      g.deathSlowmo = 0.5;
-      g.deathTransitionTimer = settings.reducedMotion ? 0.25 : 0.7;
-      g.deathFlash = settings.reducedFlashes ? 0.16 : 0.4;
-      g.deathImpactX = P_X + P_SIZE / 2;
-      g.deathImpactY = g.playerY + P_SIZE / 2;
+      g.deathSlowmo = 0.6;
       if (settings.vibration) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      spawnBurst(g, g.deathImpactX, g.deathImpactY, '#FFFFFF', settings.reducedMotion ? 10 : 16);
-      spawnBurst(g, g.deathImpactX, g.deathImpactY, COLORS.neonPink, settings.reducedMotion ? 12 : 36);
-      if (!settings.reducedMotion) {
-        Animated.sequence([
-          Animated.timing(shakeAnim, { toValue: 12, duration: 35, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: -12, duration: 35, useNativeDriver: true }),
-          Animated.timing(shakeAnimY, { toValue: 7, duration: 30, useNativeDriver: true }),
-          Animated.timing(shakeAnimY, { toValue: -7, duration: 30, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: 5, duration: 35, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: 0, duration: 35, useNativeDriver: true }),
-          Animated.timing(shakeAnimY, { toValue: 0, duration: 35, useNativeDriver: true }),
-        ]).start();
-      }
+      spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, skin.color, 24);
       Animated.sequence([
-        Animated.timing(deathFlashAnim, { toValue: 1, duration: 70, useNativeDriver: true }),
-        Animated.timing(deathFlashAnim, { toValue: 0, duration: settings.reducedFlashes ? 160 : 320, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 12, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -12, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 8, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -5, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 2, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 0, duration: 35, useNativeDriver: true }),
       ]).start();
 
       const finalScore = scoreRef.current;
@@ -688,14 +658,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
           score: finalScore,
         });
         onDeath(finalScore, finalCoins, !g.reviveUsed);
-      }, Math.round(g.deathTransitionTimer * 1000) + 180);
-    }
-
-    if (g.phase === 'dying') {
-      g.deathTransitionTimer -= rawDelta;
-      g.deathSlowmo = Math.max(0, g.deathSlowmo - rawDelta);
-      g.deathFlash = Math.max(0, g.deathFlash - rawDelta * (settings.reducedFlashes ? 1.9 : 1.2));
-      if (g.deathTransitionTimer <= 0) g.phase = 'dead';
+      }, 850);
     }
 
     setRenderTick(t => t + 1);
@@ -724,7 +687,15 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     return '';
   }
 
-  function activatePowerup(type: PowerupType, g: GState) { applyPowerup(g.powerupState, type, Date.now(), upgrades.shield_strength); }
+  function activatePowerup(type: PowerupType, g: GState) {
+    if (type === 'shield') {
+      g.powerupShieldActive = true;
+      g.shieldHitsRemaining = 1 + upgrades.shield_strength;
+    }
+    else if (type === 'slowmo') g.powerupSlowmoTime = POWERUPS.slowmo.duration;
+    else if (type === 'double_score') g.powerupDoubleScoreTime = POWERUPS.double_score.duration;
+    else if (type === 'magnet') g.powerupMagnetTime = POWERUPS.magnet.duration;
+  }
 
   function spawnBurst(g: GState, x: number, y: number, color: string, count: number) {
     for (let i = 0; i < count; i++) {
@@ -741,7 +712,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   }
 
   function spawnCoins(obs: Obstacle, g: GState) {
-    const count = 1 + Math.floor(Math.random() * 3); // 1–3 coins per group
+    const count = 2 + Math.floor(Math.random() * 3); // 2–4 coins per group
     const baseX = obs.x + obs.width + 50 + Math.random() * 40;
     // 40% chance: horizontal string all at same Y (easy to collect by holding position)
     const isString = Math.random() < 0.4;
@@ -754,8 +725,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         ? stringY                                           // line of coins at fixed Y
         : centerY + (Math.random() - 0.5) * safeSpread;  // scattered near centre
       const roll = Math.random();
-      const rare = roll < 0.08;
-      const highValue = !rare && roll < 0.20;
+      const rare = roll < 0.12;
+      const highValue = !rare && roll < 0.27;
       g.coins.push({ id: mkId(), x: baseX + i * 34, y, collected: false, rare, highValue });
     }
   }
@@ -789,11 +760,11 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       case 'laser_gate':
         if (!obs.laserOn) return [];
         if (obs.laserFromFloor) {
-          return [{ left: obs.x - 3, right: obs.x + 3, top: FLOOR_TOP - PLAY_H * OBSTACLE_BEHAVIOR.laser_gate.beamRatio, bottom: FLOOR_TOP }];
+          return [{ left: obs.x - 3, right: obs.x + 3, top: FLOOR_TOP - PLAY_H * 0.52, bottom: FLOOR_TOP }];
         }
-        return [{ left: obs.x - 3, right: obs.x + 3, top: CEIL_BOT, bottom: CEIL_BOT + PLAY_H * OBSTACLE_BEHAVIOR.laser_gate.beamRatio }];
+        return [{ left: obs.x - 3, right: obs.x + 3, top: CEIL_BOT, bottom: CEIL_BOT + PLAY_H * 0.52 }];
       case 'spike_wall': {
-        const GAP = P_SIZE + OBSTACLE_BEHAVIOR.spike_wall.gapPadding;
+        const GAP = P_SIZE + 18;
         if (obs.gapAtFloor) {
           // Gap at floor: player must be on floor — solid block occupies top portion
           return [{ left: obs.x, right: obs.x + obs.width, top: CEIL_BOT, bottom: FLOOR_TOP - GAP }];
@@ -806,22 +777,40 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
   }
 
-  function spawnObstacleFromChunk(def: import('@/game/generation/chunks').ChunkObstacleDef): Obstacle {
+  function spawnObstacle(totalTime: number, speed: number): Obstacle {
     const id = mkId(); const x = SW + 28;
-    switch (def.type) {
-      case 'floor_spike': return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
-      case 'ceiling_spike': return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
-      case 'floor_spikes': return { id, type: 'floor_spikes', x, width: SPIKE_W * ((def.spikeCount ?? 2) * 2) + 4, spikeCount: def.spikeCount ?? 2 };
-      case 'ceiling_spikes': return { id, type: 'ceiling_spikes', x, width: SPIKE_W * ((def.spikeCount ?? 2) * 2) + 4, spikeCount: def.spikeCount ?? 2 };
-      case 'moving_spike': {
-        const [minV, maxV] = def.moveVelocityRange ?? OBSTACLE_BEHAVIOR.moving_spike.defaultVelocityRange;
-        return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: minV + spawnerRef.current.nextFloat() * (maxV - minV) };
-      }
-      case 'rotating_blade': return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-      case 'laser_gate': return { id, type: 'laser_gate', x: x + 2, width: OBSTACLE_BEHAVIOR.laser_gate.width, laserOn: false, telegraphing: true, laserTimer: OBSTACLE_BEHAVIOR.laser_gate.initialDelay, laserCycleOn: def.laserCycleOn ?? OBSTACLE_BEHAVIOR.laser_gate.defaultCycleOn, laserCycleOff: def.laserCycleOff ?? OBSTACLE_BEHAVIOR.laser_gate.defaultCycleOff, laserFromFloor: spawnerRef.current.nextFloat() < 0.5 };
-      case 'spike_wall': return { id, type: 'spike_wall', x, width: OBSTACLE_BEHAVIOR.spike_wall.width, gapAtFloor: spawnerRef.current.nextFloat() < 0.5 };
-      default: return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
+    if (totalTime < 8) {
+      return { id, type: Math.random() < 0.5 ? 'floor_spike' : 'ceiling_spike', x, width: SPIKE_W * 2 };
     }
+    if (totalTime < 20) {
+      const r = Math.random();
+      if (r < 0.35) return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
+      if (r < 0.7) return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
+      return { id, type: 'floor_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
+    }
+    if (totalTime < 35) {
+      const r = Math.random();
+      if (r < 0.18) return { id, type: 'floor_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
+      if (r < 0.36) return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
+      if (r < 0.54) return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
+      if (r < 0.72) return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
+      return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 55 + Math.random() * 40 };
+    }
+    if (totalTime < 55) {
+      const r = Math.random();
+      if (r < 0.2) return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+      if (r < 0.4) return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+      if (r < 0.58) return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 75 + Math.random() * 45 };
+      if (r < 0.76) return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
+      return { id, type: Math.random() < 0.5 ? 'floor_spikes' : 'ceiling_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
+    }
+    const r = Math.random();
+    if (r < 0.12) return { id, type: 'spike_wall' as const, x, width: 10, gapAtFloor: Math.random() < 0.5 };
+    if (r < 0.24) return { id, type: 'laser_gate' as const, x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+    if (r < 0.40) return { id, type: 'rotating_blade' as const, x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
+    if (r < 0.56) return { id, type: 'moving_spike' as const, x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 95 + Math.random() * 55 };
+    if (r < 0.76) return { id, type: 'floor_spikes' as const, x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+    return { id, type: 'ceiling_spikes' as const, x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
   }
 
   // ─── Tap handler ────────────────────────────────────────────────────────────
@@ -887,13 +876,20 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const comboLabel = getComboLabel(g.comboStreak);
   const canFlip = g.flipCooldown <= 0;
 
-  const activePowerups = useMemo(() => getActivePowerups(g.powerupState, Date.now()), [renderTick]);
+  const activePowerups = useMemo(() => {
+    const list: { type: PowerupType; timeLeft?: number }[] = [];
+    if (g.powerupShieldActive) list.push({ type: 'shield' });
+    if (g.powerupSlowmoTime > 0) list.push({ type: 'slowmo', timeLeft: g.powerupSlowmoTime });
+    if (g.powerupDoubleScoreTime > 0) list.push({ type: 'double_score', timeLeft: g.powerupDoubleScoreTime });
+    if (g.powerupMagnetTime > 0) list.push({ type: 'magnet', timeLeft: g.powerupMagnetTime });
+    return list;
+  }, [renderTick]);
 
   // Find nearest upcoming obstacle for warning
   const warnObs = g.obstacles.find(o => o.x > P_X && o.x < P_X + 260);
 
   return (
-    <Animated.View style={[styles.container, { backgroundColor: env.bgTop, transform: [{ translateX: shakeAnim }, { translateY: shakeAnimY }] }]}>
+    <Animated.View style={[styles.container, { backgroundColor: env.bgTop, transform: [{ translateX: shakeAnim }] }]}>
       <TouchableOpacity style={StyleSheet.absoluteFill} onPress={handleTap} activeOpacity={1} />
 
       {/* Environment transition flash */}
@@ -901,17 +897,6 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         style={[StyleSheet.absoluteFill, { backgroundColor: env.accentColor, opacity: envFlashAnim }]}
         pointerEvents="none"
       />
-
-      {/* Fatal flash overlay */}
-      {g.deathFlash > 0 && (
-        <Animated.View
-          style={[StyleSheet.absoluteFill, {
-            backgroundColor: '#FFFFFF',
-            opacity: deathFlashAnim.interpolate({ inputRange: [0, 1], outputRange: [0, g.deathFlash] }),
-          }]}
-          pointerEvents="none"
-        />
-      )}
 
       {/* Speed overlay */}
       {speedNorm > 0.1 && (
@@ -922,7 +907,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       )}
 
       {/* Magnet aura */}
-      {g.powerupState.active.magnet && (
+      {g.powerupMagnetTime > 0 && (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: POWERUPS.magnet.color, opacity: 0.03 }]} pointerEvents="none" />
       )}
 
@@ -1071,31 +1056,18 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
       {/* Coins */}
       {g.coins.map(coin => {
-        const R = coin.rare ? GAME.COIN_VISUAL_RADIUS * 1.55 : coin.highValue ? GAME.COIN_VISUAL_RADIUS * 1.25 : GAME.COIN_VISUAL_RADIUS;
-        const cColor = coin.rare ? '#FFE600' : coin.highValue ? '#FF9900' : env.coinColor;
+        const R = coin.rare ? GAME.COIN_VISUAL_RADIUS * 1.7 : coin.highValue ? GAME.COIN_VISUAL_RADIUS * 1.35 : GAME.COIN_VISUAL_RADIUS * 1.1;
         return (
           <View key={coin.id} pointerEvents="none" style={{
             position: 'absolute',
             left: coin.x - R, top: coin.y - R,
             width: R * 2, height: R * 2,
-            borderRadius: R,
-            backgroundColor: cColor,
-            borderWidth: coin.rare ? 2 : 1.5,
-            borderColor: coin.rare ? '#FFFFFF' : coin.highValue ? '#FFCC88' : 'rgba(255,255,255,0.4)',
-            shadowColor: cColor, shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: coin.rare ? 1 : coin.highValue ? 0.9 : 0.85,
-            shadowRadius: coin.rare ? 14 : coin.highValue ? 10 : 7,
           }}>
-            {coin.rare && (
-              <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 9, fontWeight: '900', color: '#A06000', lineHeight: 10 }}>★</Text>
-              </View>
-            )}
-            {coin.highValue && (
-              <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 8, fontWeight: '900', color: '#7A3500', lineHeight: 9 }}>3</Text>
-              </View>
-            )}
+            {coin.rare
+              ? <CoinLegendarySvg size={R * 2} />
+              : coin.highValue
+              ? <CoinRareSvg size={R * 2} />
+              : <CoinStandardSvg size={R * 2} />}
           </View>
         );
       })}
@@ -1106,7 +1078,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       ))}
 
       {/* Shield orb */}
-      {g.powerupState.active.shield && (
+      {g.powerupShieldActive && (
         <View pointerEvents="none" style={{
           position: 'absolute', left: P_X - 9, top: g.playerY - 9,
           width: P_SIZE + 18, height: P_SIZE + 18, borderRadius: (P_SIZE + 18) / 2,
@@ -1117,11 +1089,11 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       )}
 
       {/* Magnet field ring */}
-      {g.powerupState.active.magnet && (
+      {g.powerupMagnetTime > 0 && (
         <View pointerEvents="none" style={{
           position: 'absolute',
-          left: P_X + P_SIZE / 2 - MAGNET_RANGE * getPowerupEffects(g.powerupState).magnetRadius, top: g.playerY + P_SIZE / 2 - MAGNET_RANGE * getPowerupEffects(g.powerupState).magnetRadius,
-          width: MAGNET_RANGE * 2 * getPowerupEffects(g.powerupState).magnetRadius, height: MAGNET_RANGE * 2 * getPowerupEffects(g.powerupState).magnetRadius, borderRadius: MAGNET_RANGE * getPowerupEffects(g.powerupState).magnetRadius,
+          left: P_X + P_SIZE / 2 - MAGNET_RANGE, top: g.playerY + P_SIZE / 2 - MAGNET_RANGE,
+          width: MAGNET_RANGE * 2, height: MAGNET_RANGE * 2, borderRadius: MAGNET_RANGE,
           borderWidth: 1, borderColor: POWERUPS.magnet.color,
           opacity: 0.15,
         }} />
@@ -1167,13 +1139,14 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       )}
 
       {/* Header HUD */}
-      <View style={[styles.header, { paddingTop: topPadding + 6, height: HEADER_H }]}>
-        <View>
+      <View style={[styles.header, { paddingTop: topPadding + 8, height: HEADER_H }]}>
+        {/* Score + coins */}
+        <View style={styles.scoreBlock}>
           <Text style={styles.scoreText}>{score}</Text>
           {g.coinsCollected > 0 && (
             <View style={styles.coinRow}>
-              <View style={[styles.coinDot, { backgroundColor: env.coinColor }]} />
-              <Text style={[styles.coinCount, { color: env.coinColor }]}>{g.coinsCollected}</Text>
+              <CoinStandardSvg size={14} />
+              <Text style={[styles.coinCount, { color: env.coinColor }]}>×{g.coinsCollected}</Text>
             </View>
           )}
         </View>
@@ -1186,28 +1159,40 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         )}
 
         {/* Flip ready indicator */}
-        <View style={[styles.flipIndicator, { borderColor: canFlip ? env.accentColor : 'rgba(255,255,255,0.12)', backgroundColor: canFlip ? `${env.accentColor}15` : 'transparent' }]}>
-          <View style={[styles.flipDot, { backgroundColor: canFlip ? env.accentColor : 'rgba(255,255,255,0.15)' }]} />
-          <Text style={[styles.flipIndicatorText, { color: canFlip ? env.accentColor : COLORS.textMuted }]}>
+        <View style={[styles.flipIndicator, {
+          borderColor: canFlip ? env.accentColor : 'rgba(255,255,255,0.10)',
+          backgroundColor: canFlip ? `${env.accentColor}18` : 'rgba(255,255,255,0.04)',
+        }]}>
+          <View style={[styles.flipDot, {
+            backgroundColor: canFlip ? env.accentColor : 'rgba(255,255,255,0.2)',
+            shadowColor: canFlip ? env.accentColor : 'transparent',
+            shadowOpacity: canFlip ? 1 : 0,
+            shadowRadius: 6,
+          }]} />
+          <Text style={[styles.flipIndicatorText, { color: canFlip ? env.accentColor : 'rgba(255,255,255,0.3)' }]}>
             {canFlip ? 'FLIP' : 'WAIT'}
           </Text>
         </View>
 
-        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPause(); }} style={styles.pauseButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPause(); }}
+          style={styles.pauseButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons name="pause" size={18} color={COLORS.textSecondary} />
         </TouchableOpacity>
       </View>
 
       {/* Power-up HUD */}
       {activePowerups.length > 0 && (
-        <View style={[styles.powerupHUD, { top: CEIL_BOT + WALL_T + 6 }]}>
+        <View style={[styles.powerupHUD, { top: CEIL_BOT + WALL_T + 8 }]}>
           {activePowerups.map(pu => (
-            <View key={pu.type} style={[styles.powerupPill, { borderColor: POWERUPS[pu.type].color, backgroundColor: `${POWERUPS[pu.type].color}12` }]}>
-              <Ionicons name={POWERUPS[pu.type].icon as any} size={11} color={POWERUPS[pu.type].color} />
-              {pu.durationLeftMs > 0 && (
-                <View style={[styles.powerupTimerBar, { width: 28 }]}>
+            <View key={pu.type} style={[styles.powerupPill, { borderColor: POWERUPS[pu.type].color, backgroundColor: `${POWERUPS[pu.type].color}15` }]}>
+              <PowerupSvg type={pu.type} size={22} />
+              {pu.timeLeft !== undefined && (
+                <View style={[styles.powerupTimerBar, { width: 32 }]}>
                   <View style={[styles.powerupTimerFill, {
-                    width: `${(pu.durationLeftMs / POWERUP_DEFS[pu.type].durationMs) * 100}%`,
+                    width: `${(pu.timeLeft / POWERUPS[pu.type].duration) * 100}%`,
                     backgroundColor: POWERUPS[pu.type].color,
                   }]} />
                 </View>
@@ -1242,57 +1227,32 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 function PlayerBody({ skin, size, onFloor, velocity }: {
   skin: typeof SKINS[0]; size: number; onFloor: boolean; velocity: number;
 }) {
-  const eyeProgress = Math.abs(velocity) / 800;
-  const eyeShift = Math.min(eyeProgress, 1) * (onFloor ? -1 : 1) * 1.5;
-  const eyeY = size * 0.35 + eyeShift;
-  const eyeOpenness = Math.max(0.4, 1 - Math.abs(velocity) / 1200);
-
-  const baseStyle = {
-    width: size, height: size,
-    backgroundColor: skin.color,
-    shadowColor: skin.color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 10,
-  };
-
-  if (skin.shape === 'circle') {
-    return (
-      <View style={[baseStyle, { borderRadius: size / 2 }]}>
-        <View style={[styles.eye, { left: size * 0.2, top: eyeY - eyeOpenness * 2, height: 5 * eyeOpenness, backgroundColor: skin.eyeColor }]} />
-        <View style={[styles.eye, { left: size * 0.54, top: eyeY - eyeOpenness * 2, height: 5 * eyeOpenness, backgroundColor: skin.eyeColor }]} />
-      </View>
-    );
-  }
-  if (skin.shape === 'diamond') {
-    return (
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={[baseStyle, { width: size * 0.72, height: size * 0.72, borderRadius: 3, transform: [{ rotate: '45deg' }] }]} />
-      </View>
-    );
-  }
+  const flip = onFloor ? 1 : -1;
   return (
-    <View style={[baseStyle, { borderRadius: 5 }]}>
-      {/* Main eyes */}
-      <View style={[styles.eye, { left: size * 0.18, top: eyeY - eyeOpenness * 2.5, height: Math.max(3, 6 * eyeOpenness), backgroundColor: skin.eyeColor }]} />
-      <View style={[styles.eye, { left: size * 0.52, top: eyeY - eyeOpenness * 2.5, height: Math.max(3, 6 * eyeOpenness), backgroundColor: skin.eyeColor }]} />
-      {/* Shine dot on each eye */}
-      <View style={{ position: 'absolute', left: size * 0.22, top: eyeY - eyeOpenness * 2, width: 2, height: 2, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.7)' }} />
-      <View style={{ position: 'absolute', left: size * 0.56, top: eyeY - eyeOpenness * 2, width: 2, height: 2, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.7)' }} />
+    <View style={{
+      width: size, height: size,
+      transform: [{ scaleY: flip }],
+      shadowColor: skin.color,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 1,
+      shadowRadius: 12,
+    }}>
+      <CharacterSvg skinId={skin.id} size={size} />
     </View>
   );
 }
 
 function PowerupPickupComp({ pu }: { pu: PowerupPickup }) {
   const cfg = POWERUPS[pu.type];
-  const R = GAME.POWERUP_VISUAL_RADIUS;
+  const R = GAME.POWERUP_VISUAL_RADIUS + 4;
   return (
     <View pointerEvents="none" style={{
       position: 'absolute', left: pu.x - R, top: pu.y - R,
-      width: R * 2, height: R * 2, borderRadius: R,
-      backgroundColor: `${cfg.color}18`,
-      borderWidth: 1.5, borderColor: cfg.color,
+      width: R * 2, height: R * 2,
       alignItems: 'center', justifyContent: 'center',
-      shadowColor: cfg.color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 10,
+      shadowColor: cfg.color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 14,
     }}>
-      <Ionicons name={cfg.icon as any} size={12} color={cfg.color} />
+      <PowerupSvg type={pu.type} size={R * 2} />
     </View>
   );
 }
@@ -1301,26 +1261,21 @@ function SpikeGroup({ count, fromFloor, x, floorTop, ceilBot, color }: {
   count: number; fromFloor: boolean; x: number;
   floorTop: number; ceilBot: number; color: string;
 }) {
-  const spikes = Array.from({ length: count }, (_, i) => i);
+  const w = count === 1 ? 48 : count === 2 ? 64 : 80;
   if (fromFloor) {
     return (
-      <View style={{ position: 'absolute', left: x, top: floorTop - SPIKE_H, flexDirection: 'row', gap: 2 }} pointerEvents="none">
-        {spikes.map(i => (
-          <View key={i} style={{ width: 0, height: 0, borderLeftWidth: SPIKE_W / 2, borderRightWidth: SPIKE_W / 2, borderBottomWidth: SPIKE_H, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color, shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 8 }} />
-        ))}
-        <View style={{ position: 'absolute', bottom: 0, left: -1, right: -1, height: 2, backgroundColor: color, opacity: 0.5 }} />
+      <View style={{ position: 'absolute', left: x, top: floorTop - SPIKE_H }} pointerEvents="none">
+        <ObstacleFloorSpikesSvg width={w} height={SPIKE_H} />
       </View>
     );
   }
   return (
-    <View style={{ position: 'absolute', left: x, top: ceilBot, flexDirection: 'row', gap: 2 }} pointerEvents="none">
-      {spikes.map(i => (
-        <View key={i} style={{ width: 0, height: 0, borderLeftWidth: SPIKE_W / 2, borderRightWidth: SPIKE_W / 2, borderTopWidth: SPIKE_H, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: color }} />
-      ))}
-      <View style={{ position: 'absolute', top: 0, left: -1, right: -1, height: 2, backgroundColor: color, opacity: 0.5 }} />
+    <View style={{ position: 'absolute', left: x, top: ceilBot }} pointerEvents="none">
+      <ObstacleCeilingSpikesSvg width={w} height={SPIKE_H} />
     </View>
   );
 }
+
 
 function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
   obs: Obstacle; ceilBot: number; floorTop: number; midY: number; color: string;
@@ -1345,23 +1300,18 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
     );
   }
   if (obs.type === 'rotating_blade') {
+    const D = BLADE_R * 2 + 6;
     return (
       <View pointerEvents="none" style={{
-        position: 'absolute', left: obs.x - BLADE_R, top: midY - BLADE_R,
-        width: BLADE_R * 2, height: BLADE_R * 2,
-        borderRadius: BLADE_R, borderWidth: 2.5, borderColor: color,
-        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 12,
-        transform: [{ rotate: `${obs.rotation ?? 0}deg` }],
-        alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent',
+        position: 'absolute', left: obs.x - BLADE_R - 3, top: midY - BLADE_R - 3,
+        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 14,
       }}>
-        <View style={{ width: BLADE_R * 2 - 6, height: 2.5, backgroundColor: color, position: 'absolute' }} />
-        <View style={{ width: 2.5, height: BLADE_R * 2 - 6, backgroundColor: color, position: 'absolute' }} />
-        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+        <ObstacleRotatingBladeSvg size={D} rotation={obs.rotation ?? 0} />
       </View>
     );
   }
   if (obs.type === 'spike_wall') {
-    const GAP = 26 + OBSTACLE_BEHAVIOR.spike_wall.gapPadding;
+    const GAP = 26 + 18; // P_SIZE + 18 (matching hitbox)
     const solidTop = obs.gapAtFloor ? ceilBot : ceilBot + GAP;
     const solidBot = obs.gapAtFloor ? floorTop - GAP : floorTop;
     const solidH = solidBot - solidTop;
@@ -1394,46 +1344,16 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
     );
   }
   if (obs.type === 'laser_gate') {
-    const beamH = (floorTop - ceilBot) * OBSTACLE_BEHAVIOR.laser_gate.beamRatio;
+    const beamH = (floorTop - ceilBot) * 0.52;
     const top = obs.laserFromFloor ? floorTop - beamH : ceilBot;
     const isOn = !!obs.laserOn;
-    const isTelegraph = !isOn && !!obs.telegraphing;
-    const laserColor = isOn ? '#FF2266' : '#FF226633';
     return (
-      <View pointerEvents="none">
-        {isTelegraph && (
-          <View style={{
-            position: 'absolute', left: obs.x - 7, top: top - 4,
-            width: 14, height: beamH + 8, borderRadius: 7,
-            borderWidth: 1.2, borderColor: '#FFAA33AA', backgroundColor: '#FFAA3318',
-          }} />
-        )}
-        {/* Beam body */}
-        <View style={{
-          position: 'absolute', left: obs.x - 2, top,
-          width: 4, height: beamH,
-          backgroundColor: laserColor,
-          shadowColor: '#FF2266',
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: isOn ? 1 : 0.15,
-          shadowRadius: isOn ? 14 : 3,
-        }} />
-        {/* Core bright line */}
-        <View style={{
-          position: 'absolute', left: obs.x - 0.5, top,
-          width: 1, height: beamH,
-          backgroundColor: isOn ? '#FFFFFF' : 'transparent',
-          opacity: isOn ? 0.9 : 0,
-        }} />
-        {/* Source node at wall */}
-        <View style={{
-          position: 'absolute', left: obs.x - 5,
-          top: obs.laserFromFloor ? floorTop - 5 : ceilBot - 5,
-          width: 10, height: 10, borderRadius: 5,
-          backgroundColor: isOn ? '#FF2266' : '#FF226655',
-          shadowColor: '#FF2266', shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: isOn ? 1 : 0.3, shadowRadius: isOn ? 10 : 3,
-        }} />
+      <View pointerEvents="none" style={{
+        position: 'absolute', left: obs.x - 12, top,
+        shadowColor: '#FF2266', shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: isOn ? 1 : 0.3, shadowRadius: isOn ? 16 : 4,
+      }}>
+        <ObstacleLaserGateSvg width={24} height={beamH} opacity={isOn ? 1 : 0.35} />
       </View>
     );
   }
@@ -1447,29 +1367,30 @@ const styles = StyleSheet.create({
   header: {
     position: 'absolute', top: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 18, zIndex: 10,
+    paddingHorizontal: 16, zIndex: 10,
   },
+  scoreBlock: { minWidth: 68 },
   scoreText: {
-    fontFamily: 'Inter_700Bold', fontSize: 28, color: COLORS.textPrimary,
-    textShadowColor: 'rgba(0, 245, 255, 0.35)',
-    textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10,
+    fontFamily: 'Inter_700Bold', fontSize: 32, color: COLORS.textPrimary,
+    textShadowColor: 'rgba(0, 245, 255, 0.4)',
+    textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12,
   },
-  coinRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
-  coinDot: { width: 7, height: 7, borderRadius: 3.5 },
-  coinCount: { fontFamily: 'Inter_600SemiBold', fontSize: 10 },
+  coinRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+  coinCount: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
   comboBadge: {
-    paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8, borderWidth: 1,
+    paddingHorizontal: 11, paddingVertical: 4, borderRadius: 10, borderWidth: 1,
   },
   comboText: { fontFamily: 'Inter_700Bold', fontSize: 15, letterSpacing: 1 },
   flipIndicator: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8, borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 11, paddingVertical: 6, borderRadius: 10, borderWidth: 1.5,
   },
-  flipDot: { width: 5, height: 5, borderRadius: 2.5 },
-  flipIndicatorText: { fontFamily: 'Inter_600SemiBold', fontSize: 9, letterSpacing: 1.5 },
+  flipDot: { width: 6, height: 6, borderRadius: 3 },
+  flipIndicatorText: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 1.5 },
   pauseButton: {
-    width: 32, height: 32, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8,
+    width: 36, height: 36, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
   },
   wall: {
     position: 'absolute', left: 0, right: 0, overflow: 'hidden',
@@ -1489,16 +1410,16 @@ const styles = StyleSheet.create({
     position: 'absolute', width: 5, borderRadius: 2.5,
   },
   powerupHUD: {
-    position: 'absolute', right: 10, flexDirection: 'column', gap: 4, zIndex: 5,
+    position: 'absolute', right: 10, flexDirection: 'column', gap: 6, zIndex: 5,
   },
   powerupPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 7, paddingVertical: 4, borderWidth: 1, borderRadius: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 6, paddingVertical: 5, borderWidth: 1.5, borderRadius: 10,
   },
   powerupTimerBar: {
-    height: 3, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1.5, overflow: 'hidden',
+    height: 3.5, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2, overflow: 'hidden',
   },
-  powerupTimerFill: { height: '100%', borderRadius: 1.5 },
+  powerupTimerFill: { height: '100%', borderRadius: 2 },
   envLabel: {
     position: 'absolute', alignSelf: 'center', left: 0, right: 0, alignItems: 'center', zIndex: 5,
   },
