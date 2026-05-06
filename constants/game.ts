@@ -71,8 +71,8 @@ export const POWERUPS: Record<PowerupType, {
 }> = {
   shield: { id: 'shield', label: 'SHIELD', icon: 'shield-checkmark', color: '#00F5FF', duration: 0 },
   slowmo: { id: 'slowmo', label: 'SLOW-MO', icon: 'timer-outline', color: '#FF9900', duration: 5 },
-  double_score: { id: 'double_score', label: '2× SCORE', icon: 'star', color: '#FFE600', duration: 10 },
-  magnet: { id: 'magnet', label: 'MAGNET', icon: 'magnet', color: '#FF44CC', duration: 8 },
+  double_score: { id: 'double_score', label: '2× SCORE', icon: 'star', color: '#FFE600', duration: 12 },
+  magnet: { id: 'magnet', label: 'MAGNET', icon: 'magnet', color: '#FF44CC', duration: 10 },
 };
 
 export const SKINS = [
@@ -179,7 +179,7 @@ export const CHALLENGE_POOL: DailyChallenge[] = [
   { id: 'c10', type: 'max_combo', label: 'Reach x5 combo', target: 5, reward: 60, icon: 'flame-outline' },
 ];
 
-export const SCORE_MILESTONES = [10, 25, 50, 100, 200, 500];
+export const SCORE_MILESTONES = [10, 25, 50, 75, 120, 200, 350, 500];
 
 // ─── Player Upgrades ───────────────────────────────────────────────────────────
 
@@ -200,7 +200,7 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'Reduce gravity flip cooldown',
     icon: 'flash',
     maxLevel: 3,
-    costs: [100, 250, 500],
+    costs: [120, 280, 560],
     effectLabels: ['Cooldown 0.26s', 'Cooldown 0.20s', 'Cooldown 0.14s'],
   },
   {
@@ -209,7 +209,7 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'Expand coin magnet attraction range',
     icon: 'magnet',
     maxLevel: 3,
-    costs: [100, 250, 500],
+    costs: [120, 280, 560],
     effectLabels: ['+45 range', '+90 range', '+150 range'],
   },
   {
@@ -218,7 +218,7 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'Shield absorbs more hits before breaking',
     icon: 'shield-checkmark',
     maxLevel: 3,
-    costs: [150, 350, 650],
+    costs: [180, 380, 700],
     effectLabels: ['2 hits', '3 hits', '4 hits'],
   },
   {
@@ -227,7 +227,7 @@ export const UPGRADES: UpgradeDef[] = [
     description: 'Earn passive bonus score every second',
     icon: 'star',
     maxLevel: 3,
-    costs: [100, 250, 500],
+    costs: [120, 280, 560],
     effectLabels: ['+1 / sec', '+2 / sec', '+3 / sec'],
   },
 ];
