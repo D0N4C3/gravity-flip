@@ -1,0 +1,67 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- DEATH EXPLOSION EFFECT -->
+  <defs>
+    <filter id="exp-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="exp-core" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <radialGradient id="blast-center" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="1"/>
+      <stop offset="30%" stop-color="#FFCC00" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#FF4400" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#FF0044" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Outer shockwave ring -->
+  <circle cx="60" cy="60" r="56" fill="none" stroke="#FF4400" stroke-width="1" opacity="0.2" filter="url(#exp-glow)"/>
+  <circle cx="60" cy="60" r="48" fill="none" stroke="#FF8800" stroke-width="1.5" opacity="0.3" filter="url(#exp-glow)"/>
+  <circle cx="60" cy="60" r="38" fill="none" stroke="#FFCC00" stroke-width="2" opacity="0.4" filter="url(#exp-glow)"/>
+
+  <!-- Debris shards flying outward -->
+  <!-- Right -->
+  <path d="M60 60 L96 54 L100 58 L64 62 Z" fill="#FF4400" opacity="0.7" filter="url(#exp-glow)"/>
+  <path d="M60 60 L104 62 L102 68 L62 64 Z" fill="#FF8800" opacity="0.5"/>
+  <!-- Left -->
+  <path d="M60 60 L24 54 L20 58 L56 62 Z" fill="#FF4400" opacity="0.7" filter="url(#exp-glow)"/>
+  <path d="M60 60 L16 62 L18 68 L58 64 Z" fill="#FF8800" opacity="0.5"/>
+  <!-- Up -->
+  <path d="M60 60 L66 24 L62 20 L58 56 Z" fill="#FFCC00" opacity="0.7" filter="url(#exp-glow)"/>
+  <path d="M60 60 L54 20 L58 18 L62 56 Z" fill="#FF4400" opacity="0.5"/>
+  <!-- Down -->
+  <path d="M60 60 L66 96 L62 100 L58 64 Z" fill="#FFCC00" opacity="0.7" filter="url(#exp-glow)"/>
+  <path d="M60 60 L54 100 L58 102 L62 64 Z" fill="#FF4400" opacity="0.5"/>
+  <!-- Diagonal shards -->
+  <path d="M60 60 L88 32 L92 36 L66 64 Z" fill="#FF6600" opacity="0.6" filter="url(#exp-glow)"/>
+  <path d="M60 60 L88 88 L84 92 L56 64 Z" fill="#FF6600" opacity="0.6" filter="url(#exp-glow)"/>
+  <path d="M60 60 L32 32 L28 36 L54 64 Z" fill="#FF6600" opacity="0.6" filter="url(#exp-glow)"/>
+  <path d="M60 60 L32 88 L36 92 L64 64 Z" fill="#FF6600" opacity="0.6" filter="url(#exp-glow)"/>
+
+  <!-- Flying particle dots -->
+  <circle cx="100" cy="40" r="3" fill="#FFCC00" filter="url(#exp-glow)"/>
+  <circle cx="20" cy="40" r="3" fill="#FFCC00" filter="url(#exp-glow)"/>
+  <circle cx="40" cy="14" r="3" fill="#FF8800" filter="url(#exp-glow)"/>
+  <circle cx="80" cy="14" r="3" fill="#FF8800" filter="url(#exp-glow)"/>
+  <circle cx="106" cy="80" r="2" fill="#FF4400" filter="url(#exp-glow)"/>
+  <circle cx="14" cy="80" r="2" fill="#FF4400" filter="url(#exp-glow)"/>
+  <circle cx="40" cy="106" r="2.5" fill="#FFCC00" filter="url(#exp-glow)"/>
+  <circle cx="80" cy="106" r="2.5" fill="#FFCC00" filter="url(#exp-glow)"/>
+
+  <!-- Small sparks -->
+  <circle cx="108" cy="55" r="1.5" fill="#FF8800" opacity="0.8"/>
+  <circle cx="12" cy="55" r="1.5" fill="#FF8800" opacity="0.8"/>
+  <circle cx="60" cy="8" r="1.5" fill="#FFFFFF" opacity="0.9"/>
+  <circle cx="60" cy="112" r="1.5" fill="#FFFFFF" opacity="0.9"/>
+  <circle cx="95" cy="25" r="1" fill="#FFE000" opacity="0.7"/>
+  <circle cx="25" cy="95" r="1" fill="#FFE000" opacity="0.7"/>
+  <circle cx="95" cy="95" r="1" fill="#FFE000" opacity="0.7"/>
+  <circle cx="25" cy="25" r="1" fill="#FFE000" opacity="0.7"/>
+
+  <!-- Central blast (rendered last, on top) -->
+  <circle cx="60" cy="60" r="24" fill="url(#blast-center)" filter="url(#exp-core)"/>
+  <circle cx="60" cy="60" r="10" fill="#FFFFFF" opacity="0.95" filter="url(#exp-glow)"/>
+</svg>

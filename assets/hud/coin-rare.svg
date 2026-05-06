@@ -1,0 +1,26 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="coin-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <radialGradient id="coin-hv" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="30%" stop-color="#C0E0FF"/>
+      <stop offset="70%" stop-color="#4488FF"/>
+      <stop offset="100%" stop-color="#0033AA"/>
+    </radialGradient>
+  </defs>
+  <g transform="translate(4, 4)">
+    <ellipse cx="20" cy="22" rx="18" ry="18" fill="#0033AA" opacity="0.5"/>
+    <circle cx="20" cy="20" r="18" fill="url(#coin-hv)" filter="url(#coin-glow)"/>
+    <circle cx="20" cy="20" r="18" fill="none" stroke="#88CCFF" stroke-width="2" opacity="0.8"/>
+    <circle cx="20" cy="20" r="13" fill="none" stroke="#4488FF" stroke-width="1" opacity="0.6"/>
+    <path d="M20 9 L22 16 L29 16 L23.5 20.5 L25.5 27.5 L20 23 L14.5 27.5 L16.5 20.5 L11 16 L18 16 Z"
+          fill="#4488FF" opacity="0.9"/>
+    <path d="M10 10 C13 8 16 9 14 12" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.8" stroke-linecap="round"/>
+    <circle cx="32" cy="8" r="7" fill="#FF4400" filter="url(#coin-glow)"/>
+    <text x="32" y="11" font-family="Arial Black" font-size="7" font-weight="900"
+          fill="#FFFFFF" text-anchor="middle">x5</text>
+  </g>
+</svg>

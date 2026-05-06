@@ -1,0 +1,53 @@
+<svg width="80" height="48" viewBox="0 0 80 48" xmlns="http://www.w3.org/2000/svg">
+  <!-- FLOOR SPIKE CLUSTER - sits on bottom surface -->
+  <defs>
+    <filter id="spike-glow" x="-30%" y="-60%" width="160%" height="200%">
+      <feGaussianBlur stdDeviation="2 3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <linearGradient id="spike-body" x1="0%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#CC0044"/>
+      <stop offset="70%" stop-color="#FF2266"/>
+      <stop offset="100%" stop-color="#FF88AA"/>
+    </linearGradient>
+    <linearGradient id="spike-body2" x1="0%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#AA0033"/>
+      <stop offset="70%" stop-color="#FF1155"/>
+      <stop offset="100%" stop-color="#FF6699"/>
+    </linearGradient>
+    <linearGradient id="spike-base" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#880022"/>
+      <stop offset="100%" stop-color="#440011"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ground base plate -->
+  <rect x="0" y="40" width="80" height="8" fill="url(#spike-base)" opacity="0.8"/>
+  <line x1="0" y1="40" x2="80" y2="40" stroke="#FF2266" stroke-width="1" opacity="0.8" filter="url(#spike-glow)"/>
+
+  <!-- Side small spikes -->
+  <polygon points="5,40 12,15 19,40" fill="url(#spike-body2)" filter="url(#spike-glow)"/>
+  <polygon points="61,40 68,15 75,40" fill="url(#spike-body2)" filter="url(#spike-glow)"/>
+
+  <!-- Main center spike (tallest) -->
+  <polygon points="30,40 40,4 50,40" fill="url(#spike-body)" filter="url(#spike-glow)"/>
+
+  <!-- Medium flanking spikes -->
+  <polygon points="16,40 25,18 34,40" fill="url(#spike-body)" filter="url(#spike-glow)"/>
+  <polygon points="46,40 55,18 64,40" fill="url(#spike-body)" filter="url(#spike-glow)"/>
+
+  <!-- Tip glow dots -->
+  <circle cx="40" cy="5" r="2.5" fill="#FFFFFF" filter="url(#spike-glow)" opacity="0.9"/>
+  <circle cx="25" cy="19" r="1.8" fill="#FF88AA" filter="url(#spike-glow)" opacity="0.8"/>
+  <circle cx="55" cy="19" r="1.8" fill="#FF88AA" filter="url(#spike-glow)" opacity="0.8"/>
+  <circle cx="12" cy="16" r="1.2" fill="#FF4477" filter="url(#spike-glow)" opacity="0.7"/>
+  <circle cx="68" cy="16" r="1.2" fill="#FF4477" filter="url(#spike-glow)" opacity="0.7"/>
+
+  <!-- Spike face edge highlights -->
+  <line x1="30" y1="40" x2="40" y2="4" stroke="#FF88AA" stroke-width="0.8" opacity="0.6"/>
+  <line x1="16" y1="40" x2="25" y2="18" stroke="#FF88AA" stroke-width="0.5" opacity="0.5"/>
+  <line x1="46" y1="40" x2="55" y2="18" stroke="#FF88AA" stroke-width="0.5" opacity="0.5"/>
+
+  <!-- Ground glow -->
+  <ellipse cx="40" cy="40" rx="35" ry="4" fill="#FF2266" opacity="0.12" filter="url(#spike-glow)"/>
+</svg>
