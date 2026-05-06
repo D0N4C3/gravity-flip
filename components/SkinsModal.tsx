@@ -30,8 +30,8 @@ function SkinPreview({ skinId, size = 36 }: { skinId: string; size?: number }) {
   }, []);
   const skinAssetById: Record<string, HudAssetName> = {
     default: 'character_default',
-    robot: 'character_default',
-    ninja: 'character_default',
+    robot: 'character_phantom',
+    ninja: 'character_phantom',
     neon_cube: 'character_default',
     ghost: 'character_phantom',
     glitch: 'character_legendary',
@@ -71,7 +71,9 @@ function TrailPreview({ trailId }: { trailId: string }) {
   const trailAssetById: Record<string, HudAssetName> = {
     neon: 'trail_plasma',
     fire: 'trail_fire',
-    glitch: 'trail_plasma',
+    glitch: 'trail_prismatic',
+    ice: 'trail_plasma',
+    gold: 'trail_fire',
     rainbow: 'trail_prismatic',
   };
 
