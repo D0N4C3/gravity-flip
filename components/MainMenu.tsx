@@ -217,13 +217,27 @@ export default function MainMenu({ onPlay, onSkins, onShop, onLeaderboard, onSet
 
       <View style={styles.milestonePanel}>
         <View style={styles.milestoneHeader}>
-          <Text style={styles.milestoneTitle}>MILESTONES</Text>
-          <Text style={styles.milestoneClaimed}>{claimedMilestones}/{MILESTONE_REWARDS.length} claimed</Text>
+          <View style={styles.milestoneTitleWrap}>
+            <Ionicons name="sparkles" size={14} color={COLORS.neonCyan} />
+            <Text style={styles.milestoneTitle}>MILESTONES</Text>
+          </View>
+          <View style={styles.milestoneClaimedBadge}>
+            <Text style={styles.milestoneClaimed}>{claimedMilestones}/{MILESTONE_REWARDS.length}</Text>
+            <Text style={styles.milestoneClaimedLabel}>CLAIMED</Text>
+          </View>
         </View>
         {upcomingMilestones.map((m) => (
           <View key={m.id} style={styles.milestoneRow}>
-            <Text style={styles.milestoneScore}>SCORE {m.score}</Text>
-            <Text style={styles.milestoneText}>{m.title}</Text>
+            <View style={styles.milestoneScorePill}>
+              <Text style={styles.milestoneScore}>SCORE {m.score}</Text>
+            </View>
+            <View style={styles.milestoneContent}>
+              <Text style={styles.milestoneText}>{m.title}</Text>
+              <View style={styles.milestoneProgressTrack}>
+                <View style={styles.milestoneProgressFill} />
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={`${COLORS.neonCyan}90`} />
           </View>
         ))}
       </View>
@@ -299,12 +313,62 @@ const styles = StyleSheet.create({
     borderRadius: 4, backgroundColor: COLORS.neonYellow,
     borderWidth: 1.5, borderColor: '#070E1C',
   },
-  milestonePanel: { width: '92%', borderWidth: 1, borderColor: 'rgba(0,245,255,0.15)', backgroundColor: 'rgba(0,245,255,0.05)', borderRadius: 14, padding: 12, gap: 6 },
+  milestonePanel: {
+    width: '92%',
+    borderWidth: 1,
+    borderColor: 'rgba(0,245,255,0.22)',
+    backgroundColor: 'rgba(1,28,44,0.72)',
+    borderRadius: 16,
+    padding: 12,
+    gap: 8,
+    shadowColor: COLORS.neonCyan,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+  },
   milestoneHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  milestoneTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   milestoneTitle: { fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: 2, color: COLORS.neonCyan },
-  milestoneClaimed: { fontFamily: 'Inter_500Medium', fontSize: 11, color: COLORS.textMuted },
-  milestoneRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  milestoneScore: { fontFamily: 'Inter_700Bold', fontSize: 10, color: COLORS.neonYellow, width: 72 },
-  milestoneText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: COLORS.textPrimary, flex: 1 },
+  milestoneClaimedBadge: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  milestoneClaimed: { fontFamily: 'Inter_700Bold', fontSize: 11, color: COLORS.textPrimary },
+  milestoneClaimedLabel: { fontFamily: 'Inter_500Medium', fontSize: 9, color: COLORS.textMuted, letterSpacing: 1 },
+  milestoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,245,255,0.12)',
+    backgroundColor: 'rgba(0,245,255,0.04)',
+    borderRadius: 12,
+    padding: 8,
+  },
+  milestoneScorePill: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,230,0,0.22)',
+    backgroundColor: 'rgba(255,230,0,0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  milestoneScore: { fontFamily: 'Inter_700Bold', fontSize: 10, color: COLORS.neonYellow },
+  milestoneContent: { flex: 1, gap: 5 },
+  milestoneText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: COLORS.textPrimary },
+  milestoneProgressTrack: {
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  milestoneProgressFill: { width: '35%', height: '100%', backgroundColor: 'rgba(0,245,255,0.7)' },
   tapHint: { fontFamily: 'Inter_400Regular', fontSize: 9, color: COLORS.textMuted, letterSpacing: 3 },
 });
