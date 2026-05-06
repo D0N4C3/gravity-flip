@@ -37,6 +37,7 @@ function EntryRow({ entry, rank, isPersonalBest }: { entry: LeaderboardEntry; ra
       </View>
       <View style={[styles.skinDot, { backgroundColor: skin.color }]} />
       <View style={styles.entryInfo}>
+        <Text style={styles.entryName}>{entry.playerName || 'Pilot'}</Text>
         <Text style={styles.entryDate}>{entry.date}</Text>
         {isPersonalBest && <Text style={styles.pbLabel}>BEST</Text>}
       </View>
@@ -230,9 +231,12 @@ const styles = StyleSheet.create({
   },
   entryInfo: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    gap: 4,
+  },
+  entryName: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: COLORS.textPrimary,
   },
   entryDate: {
     fontFamily: 'Inter_400Regular',

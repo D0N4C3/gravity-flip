@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import { View, StyleSheet, StatusBar, Modal, Text, TextInput, TouchableOpacity } from 'react-native';
 import COLORS from '@/constants/colors';
 import MainMenu from '@/components/MainMenu';
 import GameScreen, { GameScreenRef } from '@/components/GameScreen';
@@ -33,8 +33,9 @@ export default function App() {
   const [showDailyRewards, setShowDailyRewards] = useState(false);
   const [showUpgrades, setShowUpgrades] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [draftName, setDraftName] = useState('');
   const gameKeyRef = useRef(0);
-  const { settings } = useGame();
+  const { settings, playerName, setPlayerName } = useGame();
   const gameScreenRef = useRef<GameScreenRef>(null);
 
   useEffect(() => {
@@ -93,6 +94,7 @@ export default function App() {
   }, []);
 
   const gameActive = screen !== 'menu';
+  const shouldPromptName = !playerName;
 
   return (
     <View style={styles.root}>
@@ -155,10 +157,42 @@ export default function App() {
       <DailyRewardsModal visible={showDailyRewards} onClose={() => onUiTap(() => setShowDailyRewards(false))} />
       <UpgradesModal visible={showUpgrades} onClose={() => onUiTap(() => setShowUpgrades(false))} />
       <ShopModal visible={showShop} onClose={() => onUiTap(() => setShowShop(false))} />
+
+      <Modal visible={shouldPromptName} transparent animationType="fade">
+        <View style={styles.nameOverlay}>
+          <View style={styles.nameCard}>
+            <Text style={styles.nameTitle}>REGISTER PILOT NAME</Text>
+            <Text style={styles.nameSubtitle}>This name appears on leaderboard entries.</Text>
+            <TextInput
+              value={draftName}
+              onChangeText={setDraftName}
+              maxLength={18}
+              autoCapitalize="words"
+              placeholder="Enter your name"
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              style={styles.nameInput}
+            />
+            <TouchableOpacity
+              style={[styles.nameButton, !draftName.trim() && { opacity: 0.5 }]}
+              disabled={!draftName.trim()}
+              onPress={() => setPlayerName(draftName)}
+            >
+              <Text style={styles.nameButtonText}>CONTINUE</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.background },
+  nameOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 22 },
+  nameCard: { borderRadius: 18, backgroundColor: '#081627', padding: 20, borderWidth: 1, borderColor: 'rgba(0,245,255,0.24)' },
+  nameTitle: { color: COLORS.neonCyan, fontFamily: 'Inter_700Bold', letterSpacing: 2, marginBottom: 8, fontSize: 16 },
+  nameSubtitle: { color: COLORS.textSecondary, fontFamily: 'Inter_400Regular', marginBottom: 14 },
+  nameInput: { borderWidth: 1, borderColor: 'rgba(0,245,255,0.3)', borderRadius: 12, color: COLORS.textPrimary, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 14 },
+  nameButton: { backgroundColor: COLORS.neonCyan, borderRadius: 12, paddingVertical: 11, alignItems: 'center' },
+  nameButtonText: { color: COLORS.background, fontFamily: 'Inter_700Bold', letterSpacing: 2 },
 });
