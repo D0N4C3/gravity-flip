@@ -12,6 +12,7 @@ import DailyChallengesModal from '@/components/DailyChallengesModal';
 import AchievementsModal from '@/components/AchievementsModal';
 import DailyRewardsModal from '@/components/DailyRewardsModal';
 import UpgradesModal from '@/components/UpgradesModal';
+import ShopModal from '@/components/ShopModal';
 
 type Screen = 'menu' | 'game' | 'dead';
 
@@ -29,6 +30,7 @@ export default function App() {
   const [showAchievements, setShowAchievements] = useState(false);
   const [showDailyRewards, setShowDailyRewards] = useState(false);
   const [showUpgrades, setShowUpgrades] = useState(false);
+  const [showShop, setShowShop] = useState(false);
   const gameKeyRef = useRef(0);
   const gameScreenRef = useRef<GameScreenRef>(null);
 
@@ -86,6 +88,7 @@ export default function App() {
         <MainMenu
           onPlay={handlePlay}
           onSkins={() => setShowSkins(true)}
+          onShop={() => setShowShop(true)}
           onLeaderboard={() => setShowLeaderboard(true)}
           onSettings={() => setShowSettings(true)}
           onChallenges={() => setShowChallenges(true)}
@@ -137,6 +140,7 @@ export default function App() {
       <AchievementsModal visible={showAchievements} onClose={() => setShowAchievements(false)} />
       <DailyRewardsModal visible={showDailyRewards} onClose={() => setShowDailyRewards(false)} />
       <UpgradesModal visible={showUpgrades} onClose={() => setShowUpgrades(false)} />
+      <ShopModal visible={showShop} onClose={() => setShowShop(false)} />
     </View>
   );
 }

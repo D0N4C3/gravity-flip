@@ -14,6 +14,7 @@ import { useGame } from '@/context/GameContext';
 interface Props {
   onPlay: () => void;
   onSkins: () => void;
+  onShop: () => void;
   onLeaderboard: () => void;
   onSettings: () => void;
   onChallenges: () => void;
@@ -22,7 +23,7 @@ interface Props {
   onUpgrades: () => void;
 }
 
-export default function MainMenu({ onPlay, onSkins, onLeaderboard, onSettings, onChallenges, onAchievements, onDailyRewards, onUpgrades }: Props) {
+export default function MainMenu({ onPlay, onSkins, onShop, onLeaderboard, onSettings, onChallenges, onAchievements, onDailyRewards, onUpgrades }: Props) {
   const insets = useSafeAreaInsets();
   const { bestScore, coins, dailyChallenges, achievedIds, dailyRewardClaimed } = useGame();
 
@@ -147,7 +148,14 @@ export default function MainMenu({ onPlay, onSkins, onLeaderboard, onSettings, o
           <TouchableOpacity onPress={() => handleBtn(onSkins)} activeOpacity={0.75} style={styles.gridBtn}>
             <View style={styles.gridBtnInner}>
               <MaterialCommunityIcons name="palette-outline" size={20} color={COLORS.neonCyan} />
-              <Text style={styles.gridBtnText}>SKINS</Text>
+              <Text style={styles.gridBtnText}>CUSTOM</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => handleBtn(onShop)} activeOpacity={0.75} style={styles.gridBtn}>
+            <View style={styles.gridBtnInner}>
+              <Ionicons name="cart-outline" size={20} color={COLORS.neonCyan} />
+              <Text style={styles.gridBtnText}>SHOP</Text>
             </View>
           </TouchableOpacity>
 

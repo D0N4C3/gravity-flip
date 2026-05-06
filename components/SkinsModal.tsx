@@ -52,7 +52,7 @@ function TrailPreview({ trailId }: { trailId: string }) {
 
 export default function SkinsModal({ visible, onClose }: Props) {
   const insets = useSafeAreaInsets();
-  const { selectedSkinId, selectSkin, selectedTrailId, selectTrail, unlockedSkins, unlockedTrails, buySkin, buyTrail, coins } = useGame();
+  const { selectedSkinId, selectSkin, selectedTrailId, selectTrail, unlockedSkins, unlockedTrails } = useGame();
   const slideAnim = useRef(new Animated.Value(400)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<Tab>('skins');
@@ -72,13 +72,13 @@ export default function SkinsModal({ visible, onClose }: Props) {
   }, [visible]);
 
   function handleSelectSkin(skinId: string) {
-    if (!unlockedSkins.includes(skinId) && !buySkin(skinId)) return;
+    if (!unlockedSkins.includes(skinId)) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     selectSkin(skinId);
   }
 
   function handleSelectTrail(trailId: string) {
-    if (!unlockedTrails.includes(trailId) && !buyTrail(trailId)) return;
+    if (!unlockedTrails.includes(trailId)) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     selectTrail(trailId);
   }
@@ -148,7 +148,7 @@ export default function SkinsModal({ visible, onClose }: Props) {
                             <View style={styles.unlockRow}>
                               <View style={styles.unlockCoinDot} />
                               <Text style={[styles.unlockScore, { color: COLORS.neonYellow }]}>
-                                {coins}/{skin.unlockCoins}
+                                LOCKED
                               </Text>
                             </View>
                           )}
@@ -169,7 +169,7 @@ export default function SkinsModal({ visible, onClose }: Props) {
                       );
                     })}
                   </View>
-                  <Text style={styles.hint}>TAP A LOCKED SKIN TO BUY IT</Text>
+                  <Text style={styles.hint}>SHOP TO UNLOCK MORE SKINS</Text>
                 </>
               ) : (
                 <>
@@ -205,7 +205,7 @@ export default function SkinsModal({ visible, onClose }: Props) {
                             <View style={styles.unlockRow}>
                               <View style={styles.unlockCoinDot} />
                               <Text style={[styles.unlockScore, { color: COLORS.neonYellow }]}>
-                                {coins}/{trail.unlockCoins}
+                                LOCKED
                               </Text>
                             </View>
                           )}
@@ -229,7 +229,7 @@ export default function SkinsModal({ visible, onClose }: Props) {
                       );
                     })}
                   </View>
-                  <Text style={styles.hint}>TAP A LOCKED TRAIL TO BUY IT</Text>
+                  <Text style={styles.hint}>SHOP TO UNLOCK MORE TRAILS</Text>
                 </>
               )}
             </ScrollView>
