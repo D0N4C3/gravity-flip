@@ -1,0 +1,98 @@
+<svg width="220" height="64" viewBox="0 0 220 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Full spectrum gradient -->
+    <linearGradient id="rb-spectrum" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF0080" stop-opacity="0"/>
+      <stop offset="12%" stop-color="#FF0040" stop-opacity="0.35"/>
+      <stop offset="25%" stop-color="#FF6600" stop-opacity="0.65"/>
+      <stop offset="38%" stop-color="#FFE400" stop-opacity="0.8"/>
+      <stop offset="52%" stop-color="#00FF88" stop-opacity="0.85"/>
+      <stop offset="65%" stop-color="#00CFFF" stop-opacity="0.9"/>
+      <stop offset="78%" stop-color="#7B4FFF" stop-opacity="0.95"/>
+      <stop offset="90%" stop-color="#FF40CC" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="1"/>
+    </linearGradient>
+    <!-- Soft upper band -->
+    <linearGradient id="rb-upper" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF0080" stop-opacity="0"/>
+      <stop offset="20%" stop-color="#FF6600" stop-opacity="0.3"/>
+      <stop offset="45%" stop-color="#00FF88" stop-opacity="0.4"/>
+      <stop offset="70%" stop-color="#00CFFF" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#FF40CC" stop-opacity="0.5"/>
+    </linearGradient>
+    <!-- Soft lower band -->
+    <linearGradient id="rb-lower" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7B4FFF" stop-opacity="0"/>
+      <stop offset="30%" stop-color="#FF6600" stop-opacity="0.25"/>
+      <stop offset="60%" stop-color="#FFE400" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#FF0080" stop-opacity="0.4"/>
+    </linearGradient>
+    <filter id="rb-glow" x="-10%" y="-200%" width="120%" height="500%">
+      <feGaussianBlur stdDeviation="3 8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="rb-soft" x="-5%" y="-100%" width="110%" height="300%">
+      <feGaussianBlur stdDeviation="1.5 3"/>
+    </filter>
+    <filter id="rb-prism" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1"/>
+    </filter>
+  </defs>
+
+  <!-- Outer rainbow aura bands -->
+  <line x1="5" y1="26" x2="210" y2="26" stroke="url(#rb-upper)" stroke-width="6" filter="url(#rb-soft)" opacity="0.5"/>
+  <line x1="5" y1="38" x2="210" y2="38" stroke="url(#rb-lower)" stroke-width="6" filter="url(#rb-soft)" opacity="0.4"/>
+
+  <!-- Wide diffuse rainbow wash -->
+  <rect x="5" y="25" width="200" height="14" fill="url(#rb-spectrum)" opacity="0.15" filter="url(#rb-glow)"/>
+
+  <!-- Core rainbow beam -->
+  <line x1="5" y1="32" x2="210" y2="32" stroke="url(#rb-spectrum)" stroke-width="5" filter="url(#rb-glow)"/>
+
+  <!-- Bright center ribbon -->
+  <line x1="20" y1="32" x2="210" y2="32" stroke="url(#rb-spectrum)" stroke-width="2.5"/>
+
+  <!-- Iridescent shimmer wave bands (thin offset lines) -->
+  <path d="M10 30 C50 27 90 33 130 29 C160 26 185 31 210 30" stroke="url(#rb-upper)" stroke-width="1.2" fill="none" opacity="0.6"/>
+  <path d="M10 34 C45 37 85 31 125 35 C158 38 185 33 210 34" stroke="url(#rb-lower)" stroke-width="1.2" fill="none" opacity="0.5"/>
+
+  <!-- Prism sparkle dots (cycle through hues) -->
+  <circle cx="22" cy="31" r="1.3" fill="#FF0080" opacity="0.5" filter="url(#rb-prism)"/>
+  <circle cx="38" cy="33" r="1" fill="#FF6600" opacity="0.55"/>
+  <circle cx="55" cy="30" r="1.4" fill="#FFE400" opacity="0.6" filter="url(#rb-prism)"/>
+  <circle cx="72" cy="34" r="1.1" fill="#00FF88" opacity="0.65"/>
+  <circle cx="90" cy="29" r="1.3" fill="#00CFFF" opacity="0.65" filter="url(#rb-prism)"/>
+  <circle cx="108" cy="35" r="1.2" fill="#7B4FFF" opacity="0.7"/>
+  <circle cx="125" cy="29" r="1.5" fill="#FF40CC" opacity="0.7" filter="url(#rb-prism)"/>
+  <circle cx="142" cy="34" r="1.2" fill="#FF6600" opacity="0.75"/>
+  <circle cx="160" cy="30" r="1.4" fill="#FFE400" opacity="0.75" filter="url(#rb-prism)"/>
+  <circle cx="176" cy="34" r="1.3" fill="#00CFFF" opacity="0.8"/>
+  <circle cx="192" cy="30" r="1.5" fill="#FF40CC" opacity="0.85" filter="url(#rb-prism)"/>
+
+  <!-- 4-point prismatic sparkles at key points -->
+  <!-- Sparkle A ~90 -->
+  <line x1="90" y1="24" x2="90" y2="29" stroke="#00CFFF" stroke-width="0.7" opacity="0.6"/>
+  <line x1="86" y1="27" x2="94" y2="27" stroke="#00CFFF" stroke-width="0.7" opacity="0.6"/>
+  <!-- Sparkle B ~150 -->
+  <line x1="152" y1="22" x2="152" y2="28" stroke="#FFE400" stroke-width="0.8" opacity="0.7"/>
+  <line x1="148" y1="25" x2="156" y2="25" stroke="#FFE400" stroke-width="0.8" opacity="0.7"/>
+  <!-- Sparkle C ~185 -->
+  <line x1="185" y1="22" x2="185" y2="28" stroke="#FF40CC" stroke-width="0.8" opacity="0.65"/>
+  <line x1="181" y1="25" x2="189" y2="25" stroke="#FF40CC" stroke-width="0.8" opacity="0.65"/>
+
+  <!-- Diagonal sparkle rays -->
+  <line x1="90" y1="24" x2="87" y2="21" stroke="#FF6600" stroke-width="0.5" opacity="0.5"/>
+  <line x1="90" y1="24" x2="93" y2="21" stroke="#7B4FFF" stroke-width="0.5" opacity="0.5"/>
+  <line x1="152" y1="23" x2="149" y2="19" stroke="#00FF88" stroke-width="0.5" opacity="0.55"/>
+  <line x1="152" y1="23" x2="155" y2="19" stroke="#FF0080" stroke-width="0.5" opacity="0.55"/>
+
+  <!-- Glowing white tip with rainbow corona -->
+  <circle cx="208" cy="32" r="10" fill="url(#rb-spectrum)" opacity="0.2" filter="url(#rb-soft)"/>
+  <circle cx="208" cy="32" r="6" fill="#FFFFFF" opacity="0.4" filter="url(#rb-prism)"/>
+  <circle cx="209" cy="32" r="3.5" fill="#FFFFFF" opacity="0.9" filter="url(#rb-prism)"/>
+  <circle cx="210" cy="32" r="1.8" fill="#FFFFFF" opacity="1"/>
+
+  <!-- Tiny rainbow rings at tip -->
+  <ellipse cx="208" cy="32" rx="13" ry="6" fill="none" stroke="url(#rb-spectrum)" stroke-width="0.7" opacity="0.35"/>
+  <ellipse cx="208" cy="32" rx="18" ry="9" fill="none" stroke="url(#rb-spectrum)" stroke-width="0.4" opacity="0.2"/>
+</svg>

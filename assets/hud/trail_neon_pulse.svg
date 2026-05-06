@@ -1,0 +1,68 @@
+<svg width="220" height="64" viewBox="0 0 220 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="np-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00F5FF" stop-opacity="0"/>
+      <stop offset="40%" stop-color="#00BFFF" stop-opacity="0.5"/>
+      <stop offset="75%" stop-color="#7DF9FF" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="np-glow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00F5FF" stop-opacity="0"/>
+      <stop offset="60%" stop-color="#00F5FF" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#00F5FF" stop-opacity="0.35"/>
+    </linearGradient>
+    <filter id="np-blur-wide" x="-5%" y="-200%" width="110%" height="500%">
+      <feGaussianBlur stdDeviation="4 6"/>
+    </filter>
+    <filter id="np-blur-tight" x="-5%" y="-100%" width="110%" height="300%">
+      <feGaussianBlur stdDeviation="1.5 2"/>
+    </filter>
+    <filter id="np-glow" x="-10%" y="-100%" width="120%" height="300%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Wide outer aura -->
+  <rect x="0" y="25" width="210" height="14" rx="7" fill="url(#np-glow-grad)" filter="url(#np-blur-wide)"/>
+
+  <!-- Mid glow beam -->
+  <rect x="10" y="29" width="200" height="6" rx="3" fill="url(#np-grad)" opacity="0.25" filter="url(#np-blur-tight)"/>
+
+  <!-- Dash segment 1 -->
+  <rect x="8" y="30" width="48" height="4" rx="2" fill="url(#np-grad)" opacity="0.5"/>
+  <rect x="8" y="30" width="48" height="4" rx="2" fill="url(#np-grad)" opacity="0.5" filter="url(#np-blur-tight)"/>
+
+  <!-- Dash segment 2 -->
+  <rect x="68" y="30" width="52" height="4" rx="2" fill="url(#np-grad)" opacity="0.7"/>
+  <rect x="68" y="30" width="52" height="4" rx="2" fill="url(#np-grad)" opacity="0.4" filter="url(#np-blur-tight)"/>
+
+  <!-- Dash segment 3 — brightest, near head -->
+  <rect x="132" y="29.5" width="70" height="5" rx="2.5" fill="url(#np-grad)" opacity="0.95"/>
+  <rect x="132" y="29.5" width="70" height="5" rx="2.5" fill="url(#np-grad)" filter="url(#np-blur-tight)"/>
+
+  <!-- Bright tip flare -->
+  <ellipse cx="205" cy="32" rx="10" ry="5" fill="#FFFFFF" opacity="0.85" filter="url(#np-blur-tight)"/>
+  <ellipse cx="207" cy="32" rx="5" ry="3" fill="#FFFFFF" opacity="1"/>
+
+  <!-- Pulse rings at tip -->
+  <ellipse cx="207" cy="32" rx="14" ry="7" fill="none" stroke="#00F5FF" stroke-width="0.8" opacity="0.4"/>
+  <ellipse cx="207" cy="32" rx="20" ry="10" fill="none" stroke="#00BFFF" stroke-width="0.5" opacity="0.2"/>
+
+  <!-- Floating micro particles (decreasing opacity toward tail) -->
+  <circle cx="18" cy="29" r="1.2" fill="#00F5FF" opacity="0.25"/>
+  <circle cx="32" cy="34" r="0.8" fill="#FFFFFF" opacity="0.3"/>
+  <circle cx="55" cy="30" r="1" fill="#00F5FF" opacity="0.3"/>
+  <circle cx="88" cy="33" r="1.4" fill="#7DF9FF" opacity="0.45"/>
+  <circle cx="110" cy="29" r="0.9" fill="#FFFFFF" opacity="0.5"/>
+  <circle cx="150" cy="34" r="1.2" fill="#00F5FF" opacity="0.6"/>
+  <circle cx="175" cy="30" r="1.5" fill="#FFFFFF" opacity="0.7"/>
+  <circle cx="195" cy="33" r="1" fill="#7DF9FF" opacity="0.8"/>
+
+  <!-- Micro spark lines near tip -->
+  <line x1="190" y1="27" x2="193" y2="24" stroke="#FFFFFF" stroke-width="0.6" opacity="0.6"/>
+  <line x1="196" y1="37" x2="199" y2="40" stroke="#00F5FF" stroke-width="0.6" opacity="0.5"/>
+  <line x1="200" y1="26" x2="204" y2="22" stroke="#FFFFFF" stroke-width="0.5" opacity="0.4"/>
+
+  <animateTransform attributeName="transform" type="translate" values="0,0; 2,0; 0,0" dur="1.2s" repeatCount="indefinite"/>
+</svg>
