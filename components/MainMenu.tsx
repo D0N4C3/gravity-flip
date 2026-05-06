@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import COLORS from '@/constants/colors';
 import { ACHIEVEMENTS, MILESTONE_REWARDS } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
+import { gameAudio } from '@/lib/audio';
 
 interface Props {
   onPlay: () => void;
@@ -73,8 +74,8 @@ export default function MainMenu({ onPlay, onSkins, onShop, onLeaderboard, onSet
     ])).start();
   }, []);
 
-  function handlePlay() { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); onPlay(); }
-  function handleBtn(fn: () => void) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); fn(); }
+  function handlePlay() { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); gameAudio.playSfx('uiClick'); onPlay(); }
+  function handleBtn(fn: () => void) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); gameAudio.playSfx('uiClick'); fn(); }
 
   const topPadding = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPadding = Platform.OS === 'web' ? 34 : insets.bottom;
