@@ -112,6 +112,7 @@ interface GState {
   // Power-ups
   powerupShieldActive: boolean;
   shieldHitsRemaining: number;
+  shieldInvulnTime: number;
   powerupSlowmoTime: number;
   powerupDoubleScoreTime: number;
   powerupMagnetTime: number;
@@ -242,6 +243,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     totalTime: 0, reviveUsed: false,
     flipCooldown: 0,
     powerupShieldActive: false, shieldHitsRemaining: 1,
+    shieldInvulnTime: 0,
     powerupSlowmoTime: 0, powerupDoubleScoreTime: 0, powerupMagnetTime: 0,
     powerupPickups: [], coins: [], coinsCollected: 0,
     comboStreak: 0, comboDisplayTimer: 0,
@@ -307,9 +309,19 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       g.revivePending = false;
       g.powerupShieldActive = true;
       g.shieldHitsRemaining = Math.max(g.shieldHitsRemaining, 1);
+      g.shieldInvulnTime = 1.0;
       g.playerY = g.deathSnapshot.playerY;
       g.onFloor = g.deathSnapshot.onFloor;
-      g.obstacles = g.obstacles.filter((o) => o.x < g.deathSnapshot!.obstacleAnchorX - 30);
+      const revivePlayerHitbox: Rect = {
+        left: P_X + 4,
+        right: P_X + P_SIZE - 4,
+        top: g.playerY + 4,
+        bottom: g.playerY + P_SIZE - 4,
+      };
+      g.obstacles = g.obstacles.filter((o) => {
+        if (o.x >= g.deathSnapshot!.obstacleAnchorX - 30) return false;
+        return !getHitboxes(o).some((hb) => rectsClose(revivePlayerHitbox, hb, 28));
+      });
       g.deathSlowmo = 0;
       g.deathFlash = 0;
       g.deathExplosion = 0;
@@ -523,6 +535,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     if (g.powerupSlowmoTime > 0) g.powerupSlowmoTime -= rawDelta;
     if (g.powerupDoubleScoreTime > 0) g.powerupDoubleScoreTime -= rawDelta;
     if (g.powerupMagnetTime > 0) g.powerupMagnetTime -= rawDelta;
+    if (g.shieldInvulnTime > 0) g.shieldInvulnTime -= rawDelta;
 
     // ── Perfect flip timer ────────────────────────────────────────────────────
     if (g.perfectFlipTimer > 0) {
@@ -573,13 +586,16 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       const hitboxes = getHitboxes(obs);
       for (const hb of hitboxes) {
         if (rectsOverlap(pH, hb)) {
-          if (g.powerupShieldActive) {
+          if (g.powerupShieldActive && g.shieldInvulnTime <= 0) {
             g.shieldHitsRemaining -= 1;
             if (g.shieldHitsRemaining <= 0) g.powerupShieldActive = false;
+            g.shieldInvulnTime = 0.28;
             spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, COLORS.neonCyan, 10);
             const hitsLeft = g.shieldHitsRemaining;
             showPopup(g, hitsLeft > 0 ? `SHIELD BLOCK (${hitsLeft})` : 'SHIELD BREAK', COLORS.neonCyan, 'sm');
             if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          } else if (g.powerupShieldActive && g.shieldInvulnTime > 0) {
+            // Ignore repeat collisions while shield invulnerability is active.
           } else {
             died = true;
           }
