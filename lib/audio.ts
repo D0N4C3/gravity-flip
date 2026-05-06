@@ -40,8 +40,19 @@ class AudioController {
   private async loadExpoAv() {
     if (this.expoAvModule || !this.available) return this.expoAvModule;
 
+    if (Platform.OS === 'web') {
+      this.available = false;
+      return null;
+    }
+
     try {
-      this.expoAvModule = await import('expo-av');
+      const module = await import('expo-av');
+      if (!module.Audio) {
+        this.available = false;
+        return null;
+      }
+
+      this.expoAvModule = module;
       return this.expoAvModule;
     } catch {
       this.available = false;
@@ -52,36 +63,45 @@ class AudioController {
   async init() {
     if (this.initialized || !this.available) return;
 
-    const expoAv = await this.loadExpoAv();
-    if (!expoAv) return;
+    try {
+      const expoAv = await this.loadExpoAv();
+      if (!expoAv) return;
 
-    const { Audio, InterruptionModeAndroid, InterruptionModeIOS } = expoAv;
+      const { Audio, InterruptionModeAndroid, InterruptionModeIOS } = expoAv;
+      if (!Audio?.setAudioModeAsync || !Audio.Sound?.createAsync) {
+        this.available = false;
+        return;
+      }
 
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
-    });
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
 
-    if (AUDIO_ASSETS.music) {
-      const { sound } = await Audio.Sound.createAsync(
-        AUDIO_ASSETS.music,
-        { isLooping: true, volume: 0, shouldPlay: this.musicEnabled },
-      );
-      this.musicSound = sound as SoundInstance;
+      if (AUDIO_ASSETS.music) {
+        const { sound } = await Audio.Sound.createAsync(
+          AUDIO_ASSETS.music,
+          { isLooping: true, volume: 0, shouldPlay: this.musicEnabled },
+        );
+        this.musicSound = sound as SoundInstance;
+      }
+
+      for (const [key, asset] of Object.entries(AUDIO_ASSETS.sfx) as Array<[SfxType, number | null]>) {
+        if (!asset) continue;
+        const { sound } = await Audio.Sound.createAsync(asset, { shouldPlay: false, volume: 0.9 });
+        this.sfxSounds[key] = sound as SoundInstance;
+      }
+
+      this.initialized = true;
+    } catch {
+      this.available = false;
+      this.initialized = false;
     }
-
-    for (const [key, asset] of Object.entries(AUDIO_ASSETS.sfx) as Array<[SfxType, number | null]>) {
-      if (!asset) continue;
-      const { sound } = await Audio.Sound.createAsync(asset, { shouldPlay: false, volume: 0.9 });
-      this.sfxSounds[key] = sound as SoundInstance;
-    }
-
-    this.initialized = true;
   }
 
   async setSettings({ music, sfx }: { music: boolean; sfx: boolean }) {
