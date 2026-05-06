@@ -22,6 +22,8 @@ const STORAGE_KEYS = {
   DAILY_REWARD_STREAK: 'gf_daily_reward_streak',
   DAILY_REWARD_DATE: 'gf_daily_reward_date',
   UPGRADES: 'gf_upgrades',
+  OWNED_SKINS: 'gf_owned_skins',
+  OWNED_TRAILS: 'gf_owned_trails',
 };
 
 export interface LeaderboardEntry {
@@ -76,6 +78,8 @@ interface GameContextValue {
   coins: number;
   unlockedSkins: string[];
   unlockedTrails: string[];
+  buySkin: (skinId: string) => boolean;
+  buyTrail: (trailId: string) => boolean;
   dailyChallenges: ChallengeState;
   lifetimeStats: LifetimeStats;
   achievedIds: string[];
@@ -129,6 +133,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [dailyRewardStreak, setDailyRewardStreak] = useState(0);
   const [dailyRewardClaimed, setDailyRewardClaimed] = useState(false);
   const [upgrades, setUpgrades] = useState<PlayerUpgrades>(DEFAULT_UPGRADES);
+  const [ownedSkins, setOwnedSkins] = useState<string[]>(['default']);
+  const [ownedTrails, setOwnedTrails] = useState<string[]>(['neon']);
 
   useEffect(() => { loadData(); }, []);
 
@@ -140,6 +146,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         STORAGE_KEYS.COINS, STORAGE_KEYS.DAILY_CHALLENGE_DATE, STORAGE_KEYS.DAILY_CHALLENGES,
         STORAGE_KEYS.DAILY_PROGRESS, STORAGE_KEYS.LIFETIME_STATS, STORAGE_KEYS.ACHIEVED_IDS,
         STORAGE_KEYS.DAILY_REWARD_STREAK, STORAGE_KEYS.DAILY_REWARD_DATE,
+        STORAGE_KEYS.OWNED_SKINS, STORAGE_KEYS.OWNED_TRAILS,
       ];
       const values = await AsyncStorage.multiGet(keys);
       const data: Record<string, string | null> = {};
@@ -155,6 +162,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (data[STORAGE_KEYS.LIFETIME_STATS]) setLifetimeStats(JSON.parse(data[STORAGE_KEYS.LIFETIME_STATS]!));
       if (data[STORAGE_KEYS.ACHIEVED_IDS]) setAchievedIds(JSON.parse(data[STORAGE_KEYS.ACHIEVED_IDS]!));
       if (data[STORAGE_KEYS.UPGRADES]) setUpgrades({ ...DEFAULT_UPGRADES, ...JSON.parse(data[STORAGE_KEYS.UPGRADES]!) });
+      if (data[STORAGE_KEYS.OWNED_SKINS]) setOwnedSkins(JSON.parse(data[STORAGE_KEYS.OWNED_SKINS]!));
+      if (data[STORAGE_KEYS.OWNED_TRAILS]) setOwnedTrails(JSON.parse(data[STORAGE_KEYS.OWNED_TRAILS]!));
 
       // Daily challenges
       const today = getTodayDateStr();
@@ -189,16 +198,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
 
   const unlockedSkins = useMemo(() => {
-    return SKINS.filter(s => {
-      const scoreOk = bestScore >= s.unlockScore;
-      const coinsOk = coins >= s.unlockCoins;
-      return (s.unlockScore > 0 && scoreOk) || (s.unlockCoins > 0 && coinsOk) || (s.unlockScore === 0 && s.unlockCoins === 0);
-    }).map(s => s.id);
-  }, [bestScore, coins]);
+    return SKINS.filter(s => s.unlockCoins === 0 || ownedSkins.includes(s.id)).map(s => s.id);
+  }, [ownedSkins]);
 
   const unlockedTrails = useMemo(() => {
-    return TRAILS.filter(t => coins >= t.unlockCoins || t.unlockCoins === 0).map(t => t.id);
-  }, [coins]);
+    return TRAILS.filter(t => t.unlockCoins === 0 || ownedTrails.includes(t.id)).map(t => t.id);
+  }, [ownedTrails]);
 
   async function submitScore(score: number) {
     const newRuns = totalRuns + 1;
@@ -254,6 +259,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
       AsyncStorage.setItem(STORAGE_KEYS.COINS, String(newVal));
       return newVal;
     });
+    return true;
+  }
+
+  function buySkin(skinId: string): boolean {
+    const skin = SKINS.find(s => s.id === skinId);
+    if (!skin || ownedSkins.includes(skinId)) return true;
+    if (skin.unlockCoins <= 0 || !spendCoins(skin.unlockCoins)) return false;
+    const updated = [...ownedSkins, skinId];
+    setOwnedSkins(updated);
+    AsyncStorage.setItem(STORAGE_KEYS.OWNED_SKINS, JSON.stringify(updated));
+    return true;
+  }
+
+  function buyTrail(trailId: string): boolean {
+    const trail = TRAILS.find(t => t.id === trailId);
+    if (!trail || ownedTrails.includes(trailId)) return true;
+    if (trail.unlockCoins <= 0 || !spendCoins(trail.unlockCoins)) return false;
+    const updated = [...ownedTrails, trailId];
+    setOwnedTrails(updated);
+    AsyncStorage.setItem(STORAGE_KEYS.OWNED_TRAILS, JSON.stringify(updated));
     return true;
   }
 
@@ -358,7 +383,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     coins, unlockedSkins, unlockedTrails, dailyChallenges, lifetimeStats, achievedIds,
     dailyRewardStreak, dailyRewardClaimed, upgrades,
     submitScore, selectSkin, selectTrail, updateSettings, getSkinById,
-    addCoins, spendCoins, updateChallengeProgress, claimChallenge, recordRunStats, claimDailyReward, upgradeAbility,
+    addCoins, spendCoins, buySkin, buyTrail, updateChallengeProgress, claimChallenge, recordRunStats, claimDailyReward, upgradeAbility,
   }), [bestScore, leaderboard, selectedSkinId, selectedTrailId, settings, totalRuns,
     coins, unlockedSkins, unlockedTrails, dailyChallenges, lifetimeStats, achievedIds,
     dailyRewardStreak, dailyRewardClaimed, upgrades]);
