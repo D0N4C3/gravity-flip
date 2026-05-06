@@ -17,6 +17,7 @@ import {
   ObstacleRotatingBladeSvg, ObstacleLaserGateSvg,
   PowerupSvg, CharacterSvg,
 } from '@/components/GameSvgs';
+import HudAssetIcon, { type HudAssetName } from '@/components/HudAssetIcon';
 import COLORS from '@/constants/colors';
 import {
   SKINS, TRAILS, GAME, ENVIRONMENTS, ENV_ORDER, POWERUPS,
@@ -1403,14 +1404,17 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
   }
   if (obs.type === 'moving_spike') {
     const cy = midY + (obs.moveY ?? 0);
+    const movingAsset: HudAssetName =
+      obs.moveY === undefined || Math.abs(obs.moveY) < 6
+        ? 'obstacle_moving_spike_pincer'
+        : (obs.moveY > 0 ? 'obstacle_moving_spike_floor' : 'obstacle_moving_spike_ceiling');
     return (
       <View pointerEvents="none" style={{
         position: 'absolute', left: obs.x - MOVE_HW, top: cy - MOVE_HH,
-        width: MOVE_HW * 2, height: MOVE_HH * 2, borderRadius: 5,
-        backgroundColor: color,
+        width: MOVE_HW * 2, height: MOVE_HH * 2,
         shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 10,
       }}>
-        <View style={{ position: 'absolute', inset: 3, borderRadius: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
+        <HudAssetIcon name={movingAsset} size={Math.max(MOVE_HW * 2, MOVE_HH * 2)} style={{ width: MOVE_HW * 2, height: MOVE_HH * 2 }} />
       </View>
     );
   }
@@ -1427,34 +1431,15 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
   }
   if (obs.type === 'spike_wall') {
     const GAP = 26 + 18; // P_SIZE + 18 (matching hitbox)
-    const solidTop = obs.gapAtFloor ? ceilBot : ceilBot + GAP;
-    const solidBot = obs.gapAtFloor ? floorTop - GAP : floorTop;
-    const solidH = solidBot - solidTop;
-    const gapTop = obs.gapAtFloor ? floorTop - GAP : ceilBot;
+    const wallAsset: HudAssetName = obs.gapAtFloor ? 'obstacle_narrow_tunnel' : 'obstacle_narrow_tunnel_offset';
+    const top = obs.gapAtFloor ? ceilBot : ceilBot + GAP - 8;
     return (
-      <View pointerEvents="none">
-        {/* Solid barrier */}
-        <View style={{
-          position: 'absolute', left: obs.x, top: solidTop,
-          width: obs.width, height: solidH,
-          backgroundColor: color,
-          shadowColor: color, shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.9, shadowRadius: 10,
-        }} />
-        {/* Gap indicator arrows pointing into the gap */}
-        <View style={{
-          position: 'absolute', left: obs.x - 7, top: gapTop + (GAP / 2) - 8,
-          width: 0, height: 0,
-          borderTopWidth: 8, borderBottomWidth: 8, borderRightWidth: 12,
-          borderTopColor: 'transparent', borderBottomColor: 'transparent',
-          borderRightColor: color, opacity: 0.6,
-        }} />
-        {/* Edge spikes on barrier near gap */}
-        <View style={{
-          position: 'absolute', left: obs.x, top: solidBot - 4,
-          width: obs.width, height: 4,
-          backgroundColor: obs.gapAtFloor ? 'transparent' : color, opacity: 0.6,
-        }} />
+      <View pointerEvents="none" style={{
+        position: 'absolute', left: obs.x - 26, top,
+        width: 58, height: GAP + 16,
+        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 10,
+      }}>
+        <HudAssetIcon name={wallAsset} size={58} style={{ width: 58, height: GAP + 16 }} />
       </View>
     );
   }
