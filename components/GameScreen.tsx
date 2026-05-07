@@ -178,6 +178,12 @@ const MAGNET_PULL_DURATION = 10;
 const SPEED_LINE_THRESHOLD = 0.35;
 const HUD_UPDATE_INTERVAL_MS = 125;
 
+const GRID_LINE_FRACTIONS = [0.2, 0.4, 0.6, 0.8] as const;
+const SPEED_LINE_FRACTIONS = [0.15, 0.28, 0.44, 0.55, 0.68, 0.78, 0.9] as const;
+const WALL_DOT_FRACTIONS = [0.1, 0.2, 0.35, 0.5, 0.62, 0.75, 0.88] as const;
+const SPEED_LINE_OPACITY_FACTORS = [0.082, 0.094, 0.103, 0.088, 0.109, 0.097, 0.086] as const;
+
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function mkId() {
@@ -1028,6 +1034,9 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const comboMult = getComboMultiplier(g.comboStreak);
   const comboLabel = getComboLabel(g.comboStreak);
   const canFlip = g.flipCooldown <= 0;
+  const speedLineOpacityScale = (speedNorm - SPEED_LINE_THRESHOLD) / (1 - SPEED_LINE_THRESHOLD);
+  const speedOverlayStyle = useMemo(() => [styles.absoluteFill, { backgroundColor: env.obstacleColor, opacity: speedNorm * 0.06 }], [env.obstacleColor, speedNorm]);
+  const magnetAuraStyle = useMemo(() => [styles.absoluteFill, { backgroundColor: POWERUPS.magnet.color, opacity: 0.03 }], []);
 
   const activePowerups = useMemo(() => {
     const list: { type: PowerupType; timeLeft?: number }[] = [];
@@ -1052,38 +1061,38 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
   return (
     <Animated.View style={[styles.container, { backgroundColor: env.bgTop, transform: [{ translateX: shakeAnim }] }]}>
-      <TouchableOpacity style={StyleSheet.absoluteFill} onPress={handleTap} activeOpacity={1} />
+      <TouchableOpacity style={styles.absoluteFill} onPress={handleTap} activeOpacity={1} />
 
       {/* Environment transition flash */}
       <Animated.View
-        style={[StyleSheet.absoluteFill, { backgroundColor: env.accentColor, opacity: envFlashAnim }]}
+        style={[styles.absoluteFill, { backgroundColor: env.accentColor, opacity: envFlashAnim }]}
         pointerEvents="none"
       />
 
       {/* Speed overlay */}
       {speedNorm > 0.1 && (
         <View
-          style={[StyleSheet.absoluteFill, { backgroundColor: env.obstacleColor, opacity: speedNorm * 0.06 }]}
+          style={speedOverlayStyle}
           pointerEvents="none"
         />
       )}
 
       {/* Magnet aura */}
       {g.powerupMagnetTime > 0 && (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: POWERUPS.magnet.color, opacity: 0.03 }]} pointerEvents="none" />
+        <View style={magnetAuraStyle} pointerEvents="none" />
       )}
 
       {/* Background parallax nodes */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        {bgSnapshot.far.map((n, i) => (
-          <View key={`f${i}`} style={{
+      <View style={styles.absoluteFill} pointerEvents="none">
+        {bgSnapshot.far.map((n) => (
+          <View key={`far-${n.x.toFixed(1)}-${n.y.toFixed(1)}-${n.size.toFixed(1)}`} style={{
             position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2,
             width: n.size, height: n.size, borderRadius: n.size / 2,
             backgroundColor: env.nodeFarColor, opacity: n.opacity * 0.5,
           }} />
         ))}
-        {bgSnapshot.mid.map((n, i) => (
-          <View key={`m${i}`} style={{
+        {bgSnapshot.mid.map((n) => (
+          <View key={`mid-${n.x.toFixed(1)}-${n.y.toFixed(1)}-${n.size.toFixed(1)}`} style={{
             position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2,
             width: n.size + 1, height: n.size + 1, borderRadius: (n.size + 1) / 2,
             backgroundColor: env.nodeMidColor, opacity: n.opacity * 0.6,
@@ -1109,23 +1118,23 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       </View>
 
       {/* Horizontal grid lines */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        {[0.2, 0.4, 0.6, 0.8].map(f => (
+      <View style={styles.absoluteFill} pointerEvents="none">
+        {GRID_LINE_FRACTIONS.map(f => (
           <View key={f} style={{ position: 'absolute', left: 0, right: 0, top: CEIL_BOT + PLAY_H * f, height: 1, backgroundColor: env.gridColor }} />
         ))}
       </View>
 
       {/* Speed lines */}
       {speedNorm > SPEED_LINE_THRESHOLD && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          {[0.15, 0.28, 0.44, 0.55, 0.68, 0.78, 0.9].map((f, i) => (
-            <View key={i} style={{
+        <View style={styles.absoluteFill} pointerEvents="none">
+          {SPEED_LINE_FRACTIONS.map((f, i) => (
+            <View key={`speed-line-${f}`} style={{
               position: 'absolute',
               left: 0, right: 0,
               top: CEIL_BOT + PLAY_H * f,
               height: 1,
               backgroundColor: env.accentColor,
-              opacity: (speedNorm - SPEED_LINE_THRESHOLD) / (1 - SPEED_LINE_THRESHOLD) * (0.08 + Math.random() * 0.04),
+              opacity: speedLineOpacityScale * SPEED_LINE_OPACITY_FACTORS[i],
             }} />
           ))}
         </View>
@@ -1135,16 +1144,16 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       <View style={[styles.wall, { top: HEADER_H, height: WALL_T, backgroundColor: env.wallColor }]}>
         <View style={[styles.wallGlowLine, { borderBottomColor: env.wallGlow, opacity: 0.8 }]} />
         {/* Wall dots */}
-        {[0.1, 0.2, 0.35, 0.5, 0.62, 0.75, 0.88].map((f, i) => (
-          <View key={i} style={[styles.wallDot, { left: SW * f, backgroundColor: env.wallGlow, opacity: 0.4 + Math.sin(g.totalTime * 2 + i) * 0.2 }]} />
+        {WALL_DOT_FRACTIONS.map((f, i) => (
+          <View key={`ceil-dot-${f}`} style={[styles.wallDot, { left: SW * f, backgroundColor: env.wallGlow, opacity: 0.4 + Math.sin(g.totalTime * 2 + i) * 0.2 }]} />
         ))}
       </View>
 
       {/* Floor wall */}
       <View style={[styles.wall, { top: FLOOR_TOP, height: WALL_T, backgroundColor: env.wallColor }]}>
         <View style={[styles.wallGlowLineTop, { borderTopColor: env.wallGlow, opacity: 0.8 }]} />
-        {[0.1, 0.2, 0.35, 0.5, 0.62, 0.75, 0.88].map((f, i) => (
-          <View key={i} style={[styles.wallDot, { left: SW * f, top: 10, backgroundColor: env.wallGlow, opacity: 0.4 + Math.sin(g.totalTime * 2 + i + 1) * 0.2 }]} />
+        {WALL_DOT_FRACTIONS.map((f, i) => (
+          <View key={`floor-dot-${f}`} style={[styles.wallDot, { left: SW * f, top: 10, backgroundColor: env.wallGlow, opacity: 0.4 + Math.sin(g.totalTime * 2 + i + 1) * 0.2 }]} />
         ))}
       </View>
 
@@ -1510,6 +1519,7 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  absoluteFill: { ...StyleSheet.absoluteFillObject },
   header: {
     position: 'absolute', top: 0, left: 0, right: 0,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
