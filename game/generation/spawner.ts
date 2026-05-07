@@ -4,6 +4,7 @@ const MIN_CHUNK_DURATION = 1;
 const MAX_CHUNK_DURATION = 3;
 const MIN_REACTION_SEC = 0.62;
 const MIN_WALL_GAP_SPACING_SEC = 0.9;
+const MIN_OPPOSING_SPIKE_PAIR_GAP_SEC = 1.15;
 
 function mulberry32(seed: number) {
   let t = seed >>> 0;
@@ -30,16 +31,18 @@ export class ChunkSpawner {
   private nextChunkAt = 0;
   private nextAllowedObstacleAt = 0;
   private lastHardGateAt = -Infinity;
+  private lastObstacleAt = -Infinity;
+  private lastObstacleType: ChunkObstacleDef['type'] | null = null;
 
   constructor(seed: number) {
     this.random = mulberry32(seed);
   }
 
   private stageForTime(elapsedSec: number): DifficultyStage {
-    if (elapsedSec < 12) return 1;
-    if (elapsedSec < 24) return 2;
-    if (elapsedSec < 40) return 3;
-    if (elapsedSec < 60) return 4;
+    if (elapsedSec < 18) return 1;
+    if (elapsedSec < 32) return 2;
+    if (elapsedSec < 48) return 3;
+    if (elapsedSec < 68) return 4;
     return 5;
   }
 
@@ -59,10 +62,19 @@ export class ChunkSpawner {
       const violatesReaction = candidateAt < this.nextAllowedObstacleAt;
       const isHardGate = obstacle.type === 'spike_wall' || obstacle.type === 'laser_gate';
       const violatesHardGap = isHardGate && candidateAt - this.lastHardGateAt < MIN_WALL_GAP_SPACING_SEC;
-      if (violatesReaction || violatesHardGap) continue;
+      const isOpposingSpikePair =
+        (this.lastObstacleType === 'floor_spike' || this.lastObstacleType === 'floor_spikes') &&
+        (obstacle.type === 'ceiling_spike' || obstacle.type === 'ceiling_spikes') ||
+        (this.lastObstacleType === 'ceiling_spike' || this.lastObstacleType === 'ceiling_spikes') &&
+        (obstacle.type === 'floor_spike' || obstacle.type === 'floor_spikes');
+      const violatesOpposingSpikeGap =
+        isOpposingSpikePair && candidateAt - this.lastObstacleAt < MIN_OPPOSING_SPIKE_PAIR_GAP_SEC;
+      if (violatesReaction || violatesHardGap || violatesOpposingSpikeGap) continue;
 
       this.nextAllowedObstacleAt = candidateAt + MIN_REACTION_SEC;
       if (isHardGate) this.lastHardGateAt = candidateAt;
+      this.lastObstacleAt = candidateAt;
+      this.lastObstacleType = obstacle.type;
       out.push({ chunkId: chunk.id, stage, obstacle });
     }
     return out;

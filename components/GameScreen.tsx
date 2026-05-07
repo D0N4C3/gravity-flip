@@ -21,7 +21,7 @@ import HudAssetIcon, { type HudAssetName } from '@/components/HudAssetIcon';
 import COLORS from '@/constants/colors';
 import {
   SKINS, TRAILS, GAME, ENVIRONMENTS, ENV_ORDER, POWERUPS,
-  PowerupType, EnvironmentId, ChallengeType, SCORE_MILESTONES,
+  PowerupType, SCORE_MILESTONES,
 } from '@/constants/game';
 import { useGame } from '@/context/GameContext';
 import { ChunkSpawner } from '@/game/generation/spawner';
@@ -176,6 +176,7 @@ const MAGNET_RANGE = 140;
 const MAGNET_SPEED = 220;
 const MAGNET_PULL_DURATION = 10;
 const SPEED_LINE_THRESHOLD = 0.35;
+const TARGET_RENDER_FPS = 30;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -268,6 +269,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const trailTimerRef = useRef(0);
   const rAFRef = useRef<ReturnType<typeof requestAnimationFrame> | null>(null);
   const lastTimeRef = useRef<number>(0);
+  const lastRenderAtRef = useRef<number>(0);
   const isPausedRef = useRef(isPaused);
   const deadFiredRef = useRef(false);
   const chunkSpawnerRef = useRef(new ChunkSpawner(Date.now()));
@@ -490,9 +492,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
 
     // ── Score ──────────────────────────────────────────────────────────────────
+    const scoreTickInterval = Math.max(0.25, 1 - speedNorm * 0.65);
     g.scoreTimer -= rawDelta;
     if (g.scoreTimer <= 0) {
-      g.scoreTimer = 1;
+      g.scoreTimer += scoreTickInterval;
       const comboMult = getComboMultiplier(g.comboStreak);
       const doubleMult = g.powerupDoubleScoreTime > 0 ? 2 : 1;
       const upgradeBonus = upgrades.score_multiplier;
@@ -515,14 +518,14 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     g.totalTime += rawDelta;
     g.survivalTime += rawDelta;
     gameAudio.updateMusicIntensity(g.survivalTime);
-    // Speed curve: linear 0–30s → faster linear 30–60s → exponential after 60s
+    // Speed curve: quicker early pace, then ramps harder over time.
     {
       const t = g.totalTime;
       let newSpeed: number;
-      if (t < 30) {
-        newSpeed = GAME.OBSTACLE_SPEED_INITIAL + t * 2.0;
+      if (t < 20) {
+        newSpeed = GAME.OBSTACLE_SPEED_INITIAL + 18 + t * 2.3;
       } else if (t < 60) {
-        newSpeed = GAME.OBSTACLE_SPEED_INITIAL + 60 + (t - 30) * 3.0;
+        newSpeed = GAME.OBSTACLE_SPEED_INITIAL + 64 + (t - 20) * 3.1;
       } else {
         newSpeed = (GAME.OBSTACLE_SPEED_INITIAL + 150) + Math.pow(t - 60, 1.45) * 1.5;
       }
@@ -726,7 +729,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       }, 850);
     }
 
-    setRenderTick(t => t + 1);
+    if (timestamp - lastRenderAtRef.current >= 1000 / TARGET_RENDER_FPS) {
+      lastRenderAtRef.current = timestamp;
+      setRenderTick(t => t + 1);
+    }
     rAFRef.current = requestAnimationFrame(gameLoop);
   }, [P_ON_FLOOR, P_ON_CEIL, P_X, P_SIZE, FLOOR_TOP, CEIL_BOT, MID_Y, PLAY_H, settings.vibration, skin, selectedTrailId, recordRunStats, upgrades]);
 
