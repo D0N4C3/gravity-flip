@@ -2,9 +2,9 @@ import { CHUNKS, ChunkDefinition, ChunkObstacleDef, DifficultyStage } from '@/ga
 
 const MIN_CHUNK_DURATION = 1;
 const MAX_CHUNK_DURATION = 3;
-const MIN_REACTION_SEC = 0.62;
-const MIN_WALL_GAP_SPACING_SEC = 0.9;
-const MIN_OPPOSING_SPIKE_PAIR_GAP_SEC = 1.15;
+const MIN_REACTION_SEC = 0.82;
+const MIN_WALL_GAP_SPACING_SEC = 1.1;
+const MIN_OPPOSING_SPIKE_PAIR_GAP_SEC = 1.35;
 
 function mulberry32(seed: number) {
   let t = seed >>> 0;
