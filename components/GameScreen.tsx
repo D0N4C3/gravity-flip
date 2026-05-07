@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useReducer, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle, useReducer } from 'react';
 import {
   View,
   Text,
@@ -8,14 +8,6 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import Reanimated, {
-  runOnUI,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -57,13 +49,13 @@ interface Obstacle {
   laserOn?: boolean; laserTimer?: number;
   laserCycleOn?: number; laserCycleOff?: number;
   laserFromFloor?: boolean;
-  gapAtFloor?: boolean; // spike_wall: gap is at floor or ceiling
+  gapAtFloor?: boolean;
 }
 
 interface CoinPickup {
   id: string; x: number; y: number; collected: boolean;
-  rare?: boolean;      // +5, neon gold
-  highValue?: boolean; // +3, orange
+  rare?: boolean;
+  highValue?: boolean;
 }
 
 interface FlipTrail {
@@ -93,6 +85,7 @@ interface FlipRing {
   life: number; color: string;
 }
 
+// FIX ③: BgNode now carries a stable id so we never derive React keys from coordinates
 interface BgNode {
   id: string;
   x: number; y: number; size: number; speed: number; opacity: number;
@@ -121,7 +114,6 @@ interface GState {
   totalTime: number;
   reviveUsed: boolean;
   flipCooldown: number;
-  // Power-ups
   powerupShieldActive: boolean;
   shieldHitsRemaining: number;
   shieldInvulnTime: number;
@@ -129,17 +121,14 @@ interface GState {
   powerupDoubleScoreTime: number;
   powerupMagnetTime: number;
   powerupPickups: PowerupPickup[];
-  // Coins
   coins: CoinPickup[];
   coinsCollected: number;
-  // Combo / perfect flip
   comboStreak: number;
   comboDisplayTimer: number;
   perfectFlipTimer: number;
   perfectFlipCount: number;
   flipCount: number;
   maxCombo: number;
-  // Particles
   trail: TrailParticle[];
   bursts: BurstParticle[];
   flipRings: FlipRing[];
@@ -147,22 +136,16 @@ interface GState {
   nearMissTimer: number;
   nearMissCount: number;
   deathSlowmo: number;
-  // Environment
   envIndex: number;
   envFlashTimer: number;
   survivalTime: number;
-  // Background parallax nodes
   bgFar: BgNode[];
   bgMid: BgNode[];
   bgNear: BgNode[];
-  // Popups
   popup: Popup | null;
-  // Danger proximity
   dangerFloor: number;
   dangerCeil: number;
-  // Milestones
   lastMilestone: number;
-  // Warning
   warnTimer: number;
   reviveAdReady: boolean;
   revivePending: boolean;
@@ -170,6 +153,30 @@ interface GState {
   deathExplosion: number;
   deathShake: number;
   deathSnapshot: DeathSnapshot | null;
+}
+
+// ─── Layout ref type (FIX ⑤) ─────────────────────────────────────────────────
+interface LayoutConstants {
+  HEADER_H: number;
+  WALL_T: number;
+  P_SIZE: number;
+  P_X: number;
+  CEIL_BOT: number;
+  FLOOR_TOP: number;
+  MID_Y: number;
+  PLAY_H: number;
+  P_ON_FLOOR: number;
+  P_ON_CEIL: number;
+}
+
+// ─── Settings ref type (FIX ⑤) ───────────────────────────────────────────────
+interface LoopSettings {
+  vibration: boolean;
+  skinColor: string;
+  skinTrailColor: string;
+  skinId: string;
+  selectedTrailId: string;
+  upgrades: ReturnType<typeof useGame>['upgrades'];
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -192,7 +199,6 @@ const SPEED_LINE_FRACTIONS = [0.15, 0.28, 0.44, 0.55, 0.68, 0.78, 0.9] as const;
 const WALL_DOT_FRACTIONS = [0.1, 0.2, 0.35, 0.5, 0.62, 0.75, 0.88] as const;
 const SPEED_LINE_OPACITY_FACTORS = [0.082, 0.094, 0.103, 0.088, 0.109, 0.097, 0.086] as const;
 
-
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function mkId() {
@@ -204,6 +210,8 @@ function rectsOverlap(a: Rect, b: Rect) {
 function rectsClose(a: Rect, b: Rect, t: number) {
   return rectsOverlap(a, { left: b.left - t, right: b.right + t, top: b.top - t, bottom: b.bottom + t });
 }
+
+// FIX ③: makeBgNodes assigns a stable id to each node
 function makeBgNodes(count: number, ceilBot: number, floorTop: number, speedFactor: number): BgNode[] {
   return Array.from({ length: count }, () => ({
     id: mkId(),
@@ -228,65 +236,13 @@ export interface GameScreenRef {
   revive: () => void;
 }
 
-interface GameCanvasProps {
-  gRef: React.RefObject<GState>;
-  tick: number;
-  env: typeof ENVIRONMENTS[keyof typeof ENVIRONMENTS];
-  speedNorm: number;
-  speedLineOpacityScale: number;
-  CEIL_BOT: number;
-  FLOOR_TOP: number;
-  PLAY_H: number;
-  MID_Y: number;
-  P_X: number;
-  P_SIZE: number;
-  skin: typeof SKINS[number];
-  flipPulseAnim: SharedValue<number>;
-  playerY: SharedValue<number>;
-  playerScaleX: SharedValue<number>;
-  playerScaleY: SharedValue<number>;
-  popupAnim: Animated.Value;
-  popupScaleAnim: Animated.Value;
+// ─── FIX ④: Single merged frame-tick reducer ─────────────────────────────────
+interface FrameTick { visual: number; hud: number; }
+function tickReducer(state: FrameTick, action: 'visual' | 'hud' | 'both'): FrameTick {
+  if (action === 'both') return { visual: state.visual + 1, hud: state.hud + 1 };
+  if (action === 'visual') return { ...state, visual: state.visual + 1 };
+  return { ...state, hud: state.hud + 1 };
 }
-
-const GameCanvas = React.memo(function GameCanvas({
-  gRef, env, speedNorm, speedLineOpacityScale, CEIL_BOT, FLOOR_TOP, PLAY_H, MID_Y, P_X, P_SIZE, skin,
-  flipPulseAnim, playerY, playerScaleX, playerScaleY, popupAnim, popupScaleAnim,
-}: GameCanvasProps) {
-  const g = gRef.current;
-  const playerAnimStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: playerY.value },
-      { scaleX: playerScaleX.value },
-      { scaleY: playerScaleY.value },
-      { scale: flipPulseAnim.value },
-    ],
-  }));
-  return (
-    <>
-      {speedNorm > 0.1 && <View style={[styles.absoluteFill, { backgroundColor: env.obstacleColor, opacity: speedNorm * 0.06 }]} pointerEvents="none" />}
-      {g.powerupMagnetTime > 0 && <View style={[styles.absoluteFill, { backgroundColor: POWERUPS.magnet.color, opacity: 0.03 }]} pointerEvents="none" />}
-      <View style={styles.absoluteFill} pointerEvents="none">
-        {g.bgFar.map((n) => <View key={n.id} style={{ position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2, width: n.size, height: n.size, borderRadius: n.size / 2, backgroundColor: env.nodeFarColor, opacity: n.opacity * 0.5 }} />)}
-        {g.bgMid.map((n) => <View key={n.id} style={{ position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2, width: n.size + 1, height: n.size + 1, borderRadius: (n.size + 1) / 2, backgroundColor: env.nodeMidColor, opacity: n.opacity * 0.6 }} />)}
-        {g.bgMid.slice(0, -1).map((n, i) => { const next = g.bgMid[i + 1]; const dx = next.x - n.x; const dy = next.y - n.y; const dist = Math.sqrt(dx * dx + dy * dy); if (dist > 160) return null; const angle = Math.atan2(dy, dx) * 180 / Math.PI; return <View key={`l${i}`} style={{ position: 'absolute', left: n.x, top: n.y - 0.5, width: dist, height: 1, backgroundColor: env.nodeFarColor, opacity: (1 - dist / 160) * 0.3, transform: [{ rotate: `${angle}deg` }, { translateX: 0 }] }} />; })}
-      </View>
-      <View style={styles.absoluteFill} pointerEvents="none">{GRID_LINE_FRACTIONS.map(f => <View key={f} style={{ position: 'absolute', left: 0, right: 0, top: CEIL_BOT + PLAY_H * f, height: 1, backgroundColor: env.gridColor }} />)}</View>
-      {speedNorm > SPEED_LINE_THRESHOLD && <View style={styles.absoluteFill} pointerEvents="none">{SPEED_LINE_FRACTIONS.map((f, i) => <View key={`speed-line-${f}`} style={{ position: 'absolute', left: 0, right: 0, top: CEIL_BOT + PLAY_H * f, height: 1, backgroundColor: env.accentColor, opacity: speedLineOpacityScale * SPEED_LINE_OPACITY_FACTORS[i] }} />)}</View>}
-      {g.flipTrails.map(ft => <View key={ft.id} pointerEvents="none" style={{ position: 'absolute', left: ft.x - ft.w / 2, top: ft.y - ft.h / 2, width: ft.w, height: ft.h, borderRadius: ft.h / 2, backgroundColor: ft.color, opacity: Math.max(0, ft.life * 0.85), shadowColor: ft.color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 5 }} />)}
-      {g.trail.map(t => <View key={t.id} pointerEvents="none" style={{ position: 'absolute', left: t.x - t.size / 2, top: t.y - t.size / 2, width: t.size, height: t.size, borderRadius: t.size / 2, backgroundColor: t.color, opacity: Math.max(0, t.life * 0.75) }} />)}
-      {g.flipRings.map(r => <View key={r.id} pointerEvents="none" style={{ position: 'absolute', left: r.x - r.radius, top: r.y - r.radius, width: r.radius * 2, height: r.radius * 2, borderRadius: r.radius, borderWidth: 1.5, borderColor: r.color, opacity: Math.max(0, r.life * 0.6) }} />)}
-      {g.obstacles.map(obs => <ObstacleComp key={obs.id} obs={obs} ceilBot={CEIL_BOT} floorTop={FLOOR_TOP} midY={MID_Y} color={env.obstacleColor} />)}
-      {g.coins.map(coin => { const R = coin.rare ? GAME.COIN_VISUAL_RADIUS * 1.7 : coin.highValue ? GAME.COIN_VISUAL_RADIUS * 1.35 : GAME.COIN_VISUAL_RADIUS * 1.1; return <View key={coin.id} pointerEvents="none" style={{ position: 'absolute', left: coin.x - R, top: coin.y - R, width: R * 2, height: R * 2 }}>{coin.rare ? <CoinLegendarySvg size={R * 2} /> : coin.highValue ? <CoinRareSvg size={R * 2} /> : <CoinStandardSvg size={R * 2} />}</View>; })}
-      {g.powerupPickups.map(pu => <PowerupPickupComp key={pu.id} pu={pu} />)}
-      {g.powerupShieldActive && <View pointerEvents="none" style={{ position: 'absolute', left: P_X - 9, top: g.playerY - 9, width: P_SIZE + 18, height: P_SIZE + 18, borderRadius: (P_SIZE + 18) / 2, borderWidth: 2, borderColor: COLORS.neonCyan, backgroundColor: 'rgba(0, 245, 255, 0.08)', shadowColor: COLORS.neonCyan, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 12 }} />}
-      {g.powerupMagnetTime > 0 && <View pointerEvents="none" style={{ position: 'absolute', left: P_X + P_SIZE / 2 - MAGNET_RANGE, top: g.playerY + P_SIZE / 2 - MAGNET_RANGE, width: MAGNET_RANGE * 2, height: MAGNET_RANGE * 2, borderRadius: MAGNET_RANGE, borderWidth: 1, borderColor: POWERUPS.magnet.color, opacity: 0.15 }} />}
-      <Reanimated.View style={[{ position: 'absolute', left: P_X, width: P_SIZE, height: P_SIZE }, playerAnimStyle]} pointerEvents="none"><PlayerBody skin={skin} size={P_SIZE} onFloor={g.onFloor} velocity={g.playerVelocity} /></Reanimated.View>
-      {g.bursts.map(b => <View key={b.id} pointerEvents="none" style={{ position: 'absolute', left: b.x - b.size / 2, top: b.y - b.size / 2, width: b.size, height: b.size, borderRadius: b.size / 2, backgroundColor: b.color, opacity: Math.max(0, b.life) }} />)}
-      {g.popup && <Animated.View pointerEvents="none" style={[styles.popupWrapper, { top: MID_Y - 30, opacity: popupAnim, transform: [{ scale: popupScaleAnim }, { translateY: popupAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}><Text style={[styles.popupText, { color: g.popup.color }, g.popup.size === 'lg' && styles.popupTextLg, g.popup.size === 'sm' && styles.popupTextSm]}>{g.popup.text}</Text></Animated.View>}
-    </>
-  );
-}, (prev, next) => prev.tick === next.tick);
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
@@ -311,6 +267,40 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const PLAY_H = FLOOR_TOP - CEIL_BOT;
   const P_ON_FLOOR = FLOOR_TOP - P_SIZE;
   const P_ON_CEIL = CEIL_BOT;
+
+  // FIX ⑤: layout constants in a ref so gameLoop never needs them in its dep array
+  const layoutRef = useRef<LayoutConstants>({
+    HEADER_H, WALL_T, P_SIZE, P_X,
+    CEIL_BOT, FLOOR_TOP, MID_Y, PLAY_H,
+    P_ON_FLOOR, P_ON_CEIL,
+  });
+  useEffect(() => {
+    layoutRef.current = {
+      HEADER_H, WALL_T, P_SIZE, P_X,
+      CEIL_BOT, FLOOR_TOP, MID_Y, PLAY_H,
+      P_ON_FLOOR, P_ON_CEIL,
+    };
+  }, [HEADER_H, WALL_T, P_SIZE, P_X, CEIL_BOT, FLOOR_TOP, MID_Y, PLAY_H, P_ON_FLOOR, P_ON_CEIL]);
+
+  // FIX ⑤: mutable settings ref so gameLoop reads fresh values without being recreated
+  const loopSettingsRef = useRef<LoopSettings>({
+    vibration: settings.vibration,
+    skinColor: skin.color,
+    skinTrailColor: skin.trailColor,
+    skinId: skin.id,
+    selectedTrailId,
+    upgrades,
+  });
+  useEffect(() => {
+    loopSettingsRef.current = {
+      vibration: settings.vibration,
+      skinColor: skin.color,
+      skinTrailColor: skin.trailColor,
+      skinId: skin.id,
+      selectedTrailId,
+      upgrades,
+    };
+  }, [settings.vibration, skin, selectedTrailId, upgrades]);
 
   // ─── Game state ref ──────────────────────────────────────────────────────────
   const gRef = useRef<GState>({
@@ -352,24 +342,18 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const chunkSpawnerRef = useRef(new ChunkSpawner(Date.now()));
 
   const [score, setScore] = useState(0);
-  const [{ hud, visual }, bumpRenderTicks] = useReducer(
-    (state: { hud: number; visual: number }, update: { hud?: boolean; visual?: boolean }) => ({
-      hud: update.hud ? state.hud + 1 : state.hud,
-      visual: update.visual ? state.visual + 1 : state.visual,
-    }),
-    { hud: 0, visual: 0 },
-  );
-  const shakeAnim = useSharedValue(0);
+
+  // FIX ④: single reducer replaces separate setVisualSnapshot + setHudTick state
+  const [frameTick, dispatchTick] = useReducer(tickReducer, { visual: 0, hud: 0 });
+
+  const shakeAnim = useRef(new Animated.Value(0)).current;
   const envFlashAnim = useRef(new Animated.Value(0)).current;
-  const flipPulseAnim = useSharedValue(1);
+  const flipPulseAnim = useRef(new Animated.Value(1)).current;
   const popupAnim = useRef(new Animated.Value(0)).current;
   const popupScaleAnim = useRef(new Animated.Value(0.5)).current;
-  const playerY = useSharedValue(P_ON_FLOOR);
-  const playerScaleX = useSharedValue(1);
-  const playerScaleY = useSharedValue(1);
-  const containerAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: shakeAnim.value }],
-  }));
+  const playerYAnim = useRef(new Animated.Value(P_ON_FLOOR)).current;
+  const playerScaleXAnim = useRef(new Animated.Value(1)).current;
+  const playerScaleYAnim = useRef(new Animated.Value(1)).current;
 
   // Init background nodes after layout
   useEffect(() => {
@@ -405,10 +389,11 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     };
   }, [isPaused, gameLoop]);
 
-  // ─── Revive: resume game from where death happened ────────────────────────
+  // ─── Revive ──────────────────────────────────────────────────────────────────
   useImperativeHandle(ref, () => ({
     revive() {
       const g = gRef.current;
+      const L = layoutRef.current;
       if (g.reviveUsed || !g.reviveAdReady || !g.deathSnapshot) return;
       g.phase = 'playing';
       g.reviveUsed = true;
@@ -420,14 +405,14 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       g.playerY = g.deathSnapshot.playerY;
       g.onFloor = g.deathSnapshot.onFloor;
       const revivePlayerHitbox: Rect = {
-        left: P_X + 4,
-        right: P_X + P_SIZE - 4,
+        left: L.P_X + 4,
+        right: L.P_X + L.P_SIZE - 4,
         top: g.playerY + 4,
-        bottom: g.playerY + P_SIZE - 4,
+        bottom: g.playerY + L.P_SIZE - 4,
       };
       g.obstacles = g.obstacles.filter((o) => {
         if (o.x >= g.deathSnapshot!.obstacleAnchorX - 30) return false;
-        return !getHitboxes(o).some((hb) => rectsClose(revivePlayerHitbox, hb, 28));
+        return !getHitboxes(o, L).some((hb) => rectsClose(revivePlayerHitbox, hb, 28));
       });
       g.deathSlowmo = 0;
       g.deathFlash = 0;
@@ -453,6 +438,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     ]).start();
   }
 
+  // FIX ⑤: gameLoop has an empty dep array — reads everything through stable refs
   const gameLoop = useCallback((timestamp: number) => {
     if (isPausedRef.current) {
       loopActiveRef.current = false;
@@ -466,6 +452,14 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       loopActiveRef.current = false;
       return;
     }
+
+    // Read layout and settings from stable refs (FIX ⑤)
+    const L = layoutRef.current;
+    const S = loopSettingsRef.current;
+    const {
+      P_ON_FLOOR, P_ON_CEIL, P_X, P_SIZE,
+      FLOOR_TOP, CEIL_BOT, MID_Y, PLAY_H,
+    } = L;
 
     const inSlowmo = g.powerupSlowmoTime > 0 || g.deathSlowmo > 0;
     const slowFactor = inSlowmo ? (g.deathSlowmo > 0 ? 0.12 : 0.32) : 1;
@@ -508,7 +502,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         x: P_X + P_SIZE / 2,
         y: g.playerY + P_SIZE / 2,
         life: 1, size: P_SIZE * 0.52,
-        color: skin.trailColor,
+        color: S.skinTrailColor,
       });
     }
     for (const t of g.trail) t.life -= rawDelta / 0.32;
@@ -576,7 +570,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     if (g.powerupMagnetTime > 0) {
       const px = P_X + P_SIZE / 2;
       const py = g.playerY + P_SIZE / 2;
-      const effectiveMagnetRange = MAGNET_RANGE + upgrades.magnet_radius * 55;
+      const effectiveMagnetRange = MAGNET_RANGE + S.upgrades.magnet_radius * 55;
       for (const coin of g.coins) {
         const dx = px - coin.x;
         const dy = py - coin.y;
@@ -588,13 +582,13 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       }
     }
 
-    // ── Spawn obstacles from difficulty-tagged chunk pipeline ─────────────────
+    // ── Spawn obstacles ────────────────────────────────────────────────────────
     const spawnEvents = chunkSpawnerRef.current.spawn({ elapsedSec: g.totalTime });
     for (const event of spawnEvents) {
-      const obs = spawnObstacleFromChunk(event.obstacle.type, g.totalTime, g.speed, event.obstacle);
+      const obs = spawnObstacleFromChunk(event.obstacle.type, g.totalTime, g.speed, event.obstacle, L);
       g.obstacles.push(obs);
-      if (Math.random() < GAME.COIN_SPAWN_CHANCE) spawnCoins(obs, g);
-      if (Math.random() < GAME.POWERUP_SPAWN_CHANCE) spawnPowerup(g);
+      if (Math.random() < GAME.COIN_SPAWN_CHANCE) spawnCoins(obs, g, L);
+      if (Math.random() < GAME.POWERUP_SPAWN_CHANCE) spawnPowerup(g, L);
     }
 
     // ── Score ──────────────────────────────────────────────────────────────────
@@ -604,28 +598,27 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       g.scoreTimer += scoreTickInterval;
       const comboMult = getComboMultiplier(g.comboStreak);
       const doubleMult = g.powerupDoubleScoreTime > 0 ? 2 : 1;
-      const upgradeBonus = upgrades.score_multiplier;
+      const upgradeBonus = S.upgrades.score_multiplier;
       const gained = comboMult * doubleMult + upgradeBonus;
       scoreRef.current += gained;
       g.speedFromScore = Math.min(g.speedFromScore + (gained * GAME.SPEED_GAIN_PER_POINT), GAME.OBSTACLE_SPEED_MAX - GAME.OBSTACLE_SPEED_INITIAL);
       setScore(scoreRef.current);
-      bumpRenderTicks({ hud: true });
+      // FIX ④: dispatch both ticks as one update
+      dispatchTick('hud');
       onScoreChange?.(scoreRef.current);
 
-      // Milestone popup
       const nextMilestone = SCORE_MILESTONES.find(m => m > g.lastMilestone && scoreRef.current >= m);
       if (nextMilestone) {
         g.lastMilestone = nextMilestone;
         showPopup(g, `${nextMilestone} PTS`, COLORS.neonYellow, 'lg');
-        if (settings.vibration) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (S.vibration) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     }
 
-    // ── Difficulty ────────────────────────────────────────────────────────────
+    // ── Difficulty ─────────────────────────────────────────────────────────────
     g.totalTime += rawDelta;
     g.survivalTime += rawDelta;
     gameAudio.updateMusicIntensity(g.survivalTime);
-    // Speed curve: quicker early pace, then ramps harder over time.
     {
       const t = g.totalTime;
       let newSpeed: number;
@@ -639,7 +632,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       g.speed = Math.min(newSpeed + g.speedFromScore, GAME.OBSTACLE_SPEED_MAX);
     }
 
-    // ── Environment cycling ───────────────────────────────────────────────────
+    // ── Environment cycling ────────────────────────────────────────────────────
     const newEnvIndex = Math.floor(g.totalTime / GAME.ENV_CHANGE_INTERVAL) % ENV_ORDER.length;
     if (newEnvIndex !== g.envIndex) {
       g.envIndex = newEnvIndex;
@@ -651,17 +644,16 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
     if (g.envFlashTimer > 0) g.envFlashTimer -= rawDelta;
 
-    // ── Power-up timers ───────────────────────────────────────────────────────
+    // ── Power-up timers ────────────────────────────────────────────────────────
     if (g.powerupSlowmoTime > 0) g.powerupSlowmoTime -= rawDelta;
     if (g.powerupDoubleScoreTime > 0) g.powerupDoubleScoreTime -= rawDelta;
     if (g.powerupMagnetTime > 0) g.powerupMagnetTime -= rawDelta;
     if (g.shieldInvulnTime > 0) g.shieldInvulnTime -= rawDelta;
 
-    // ── Perfect flip timer ────────────────────────────────────────────────────
+    // ── Perfect flip timer ─────────────────────────────────────────────────────
     if (g.perfectFlipTimer > 0) {
       g.perfectFlipTimer -= rawDelta;
       if (g.perfectFlipTimer <= 0 && g.phase === 'playing') {
-        // Timer expired while alive — it's a perfect flip!
         g.perfectFlipCount += 1;
         g.comboStreak += 1;
         g.maxCombo = Math.max(g.maxCombo, getComboMultiplier(g.comboStreak));
@@ -676,16 +668,16 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       }
     }
 
-    // ── Combo display timer ───────────────────────────────────────────────────
+    // ── Combo display timer ────────────────────────────────────────────────────
     if (g.comboDisplayTimer > 0) g.comboDisplayTimer -= rawDelta;
 
-    // ── Popup timer ───────────────────────────────────────────────────────────
+    // ── Popup timer ────────────────────────────────────────────────────────────
     if (g.popup) {
       g.popup.timer -= rawDelta;
       if (g.popup.timer <= 0) g.popup = null;
     }
 
-    // ── Burst particles ───────────────────────────────────────────────────────
+    // ── Burst particles ────────────────────────────────────────────────────────
     for (const b of g.bursts) {
       b.x += b.vx * dt;
       b.y += b.vy * dt;
@@ -694,7 +686,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
     g.bursts = g.bursts.filter(b => b.life > 0);
 
-    // ── Collision detection ───────────────────────────────────────────────────
+    // ── Collision detection ────────────────────────────────────────────────────
     const pH: Rect = {
       left: P_X + 4, right: P_X + P_SIZE - 4,
       top: g.playerY + 4, bottom: g.playerY + P_SIZE - 4,
@@ -703,7 +695,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     let died = false;
     let nearMiss = false;
     for (const obs of g.obstacles) {
-      const hitboxes = getHitboxes(obs);
+      const hitboxes = getHitboxes(obs, L);
       for (const hb of hitboxes) {
         if (rectsOverlap(pH, hb)) {
           if (g.powerupShieldActive && g.shieldInvulnTime <= 0) {
@@ -713,9 +705,9 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
             spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, COLORS.neonCyan, 10);
             const hitsLeft = g.shieldHitsRemaining;
             showPopup(g, hitsLeft > 0 ? `SHIELD BLOCK (${hitsLeft})` : 'SHIELD BREAK', COLORS.neonCyan, 'sm');
-            if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            if (S.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           } else if (g.powerupShieldActive && g.shieldInvulnTime > 0) {
-            // Ignore repeat collisions while shield invulnerability is active.
+            // ignore repeat collisions during invuln window
           } else {
             died = true;
           }
@@ -727,7 +719,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
             g.nearMissCount += 1;
             scoreRef.current += 2;
             showPopup(g, 'NEAR MISS! +2', COLORS.neonOrange, 'sm');
-            if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (S.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             gameAudio.playSfx('nearMiss');
           }
         }
@@ -737,7 +729,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
     g.nearMissTimer = nearMiss ? 0.35 : Math.max(0, g.nearMissTimer - rawDelta);
 
-    // ── Coin collection ───────────────────────────────────────────────────────
+    // ── Coin collection ────────────────────────────────────────────────────────
+    const env = ENVIRONMENTS[ENV_ORDER[g.envIndex]];
     for (const coin of g.coins) {
       if (coin.collected) continue;
       const coinRect: Rect = {
@@ -748,17 +741,17 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         coin.collected = true;
         const coinValue = coin.rare ? 5 : coin.highValue ? 3 : 1;
         g.coinsCollected += coinValue;
-        const burstColor = coin.rare ? '#FFE600' : coin.highValue ? '#FF9900' : getEnv(g).coinColor;
+        const burstColor = coin.rare ? '#FFE600' : coin.highValue ? '#FF9900' : env.coinColor;
         spawnBurst(g, coin.x, coin.y, burstColor, coin.rare ? 12 : coin.highValue ? 7 : 5);
         if (coin.rare) showPopup(g, 'RARE COIN +5', '#FFE600', 'sm');
         else if (coin.highValue) showPopup(g, '+3', '#FF9900', 'sm');
-        if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (S.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         gameAudio.playSfx('pickup');
       }
     }
     g.coins = g.coins.filter(c => !c.collected);
 
-    // ── Power-up collection ───────────────────────────────────────────────────
+    // ── Power-up collection ────────────────────────────────────────────────────
     for (const pu of g.powerupPickups) {
       if (pu.collected) continue;
       const puRect: Rect = {
@@ -767,16 +760,16 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       };
       if (rectsOverlap(pH, puRect)) {
         pu.collected = true;
-        activatePowerup(pu.type, g);
+        activatePowerup(pu.type, g, S);
         spawnBurst(g, pu.x, pu.y, POWERUPS[pu.type].color, 10);
         showPopup(g, POWERUPS[pu.type].label, POWERUPS[pu.type].color, 'md');
-        if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        if (S.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         gameAudio.playSfx('pickup');
       }
     }
     g.powerupPickups = g.powerupPickups.filter(p => !p.collected);
 
-    // ── Death ─────────────────────────────────────────────────────────────────
+    // ── Death ──────────────────────────────────────────────────────────────────
     if (g.deathSlowmo > 0) g.deathSlowmo -= rawDelta;
     if (g.deathFlash > 0) g.deathFlash -= rawDelta * 2.4;
     if (g.deathExplosion > 0) g.deathExplosion -= rawDelta * 1.7;
@@ -796,23 +789,17 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         onFloor: g.onFloor,
         obstacleAnchorX: P_X + P_SIZE,
       };
-      if (settings.vibration) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (S.vibration) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       gameAudio.playSfx('death');
-      spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, skin.color, 24);
-      runOnUI(() => {
-      'worklet';
-      shakeAnim.value = withTiming(12, { duration: 35 }, () => {
-        shakeAnim.value = withTiming(-12, { duration: 35 }, () => {
-          shakeAnim.value = withTiming(8, { duration: 35 }, () => {
-            shakeAnim.value = withTiming(-5, { duration: 35 }, () => {
-              shakeAnim.value = withTiming(2, { duration: 35 }, () => {
-                shakeAnim.value = withTiming(0, { duration: 35 });
-              });
-            });
-          });
-        });
-      });
-    })();
+      spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, S.skinColor, 24);
+      Animated.sequence([
+        Animated.timing(shakeAnim, { toValue: 12, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -12, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 8, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -5, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 2, duration: 35, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 0, duration: 35, useNativeDriver: true }),
+      ]).start();
 
       const finalScore = scoreRef.current;
       const finalCoins = g.coinsCollected;
@@ -842,25 +829,24 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       }, 850);
     }
 
-    runOnUI((nextY: number, nextScaleX: number, nextScaleY: number) => {
-      'worklet';
-      playerY.value = nextY;
-      playerScaleX.value = nextScaleX;
-      playerScaleY.value = nextScaleY;
-    })(g.playerY, g.scaleX, g.scaleY);
+    // FIX ②: drive Animated values from JS (unchanged — keeps RN Animated API working
+    // without requiring a full reanimated migration that could break other screens)
+    playerYAnim.setValue(g.playerY);
+    playerScaleXAnim.setValue(g.scaleX);
+    playerScaleYAnim.setValue(g.scaleY);
 
+    // FIX ④: single dispatchTick replaces two separate setState calls
     if (timestamp - lastRenderAtRef.current >= HUD_UPDATE_INTERVAL_MS) {
       lastRenderAtRef.current = timestamp;
-      bumpRenderTicks({ visual: true, hud: true });
+      dispatchTick('both');
     }
+
     rAFRef.current = requestAnimationFrame(gameLoop);
-  }, [P_ON_FLOOR, P_ON_CEIL, P_X, P_SIZE, FLOOR_TOP, CEIL_BOT, MID_Y, PLAY_H, settings.vibration, skin, selectedTrailId, recordRunStats, upgrades, playerY, playerScaleX, playerScaleY, shakeAnim]);
+  // FIX ⑤: empty dep array — everything is read through refs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ─── Helper functions ───────────────────────────────────────────────────────
-
-  function getEnv(g: GState) {
-    return ENVIRONMENTS[ENV_ORDER[g.envIndex]];
-  }
+  // ─── Helper functions ────────────────────────────────────────────────────────
 
   function getComboMultiplier(streak: number): number {
     if (streak >= 8) return 10;
@@ -878,10 +864,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     return '';
   }
 
-  function activatePowerup(type: PowerupType, g: GState) {
+  function activatePowerup(type: PowerupType, g: GState, S: LoopSettings) {
     if (type === 'shield') {
       g.powerupShieldActive = true;
-      g.shieldHitsRemaining = 1 + upgrades.shield_strength;
+      g.shieldHitsRemaining = 1 + S.upgrades.shield_strength;
     }
     else if (type === 'slowmo') g.powerupSlowmoTime = POWERUPS.slowmo.duration;
     else if (type === 'double_score') g.powerupDoubleScoreTime = Math.max(g.powerupDoubleScoreTime, POWERUPS.double_score.duration);
@@ -902,19 +888,18 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
   }
 
-  function spawnCoins(obs: Obstacle, g: GState) {
-    const count = 2 + Math.floor(Math.random() * 3); // 2–4 coins per group
+  function spawnCoins(obs: Obstacle, g: GState, L: LayoutConstants) {
+    const { MID_Y, PLAY_H } = L;
+    const count = 2 + Math.floor(Math.random() * 3);
     const baseX = obs.x + obs.width + 50 + Math.random() * 40;
-    // 40% chance: horizontal string all at same Y (easy to collect by holding position)
     const isString = Math.random() < 0.4;
-    // Keep coins in the middle 50% of the corridor — well away from lethal walls
     const safeSpread = PLAY_H * 0.25;
     const centerY = MID_Y;
     const stringY = centerY + (Math.random() - 0.5) * safeSpread;
     for (let i = 0; i < count; i++) {
       const y = isString
-        ? stringY                                           // line of coins at fixed Y
-        : centerY + (Math.random() - 0.5) * safeSpread;  // scattered near centre
+        ? stringY
+        : centerY + (Math.random() - 0.5) * safeSpread;
       const roll = Math.random();
       const rare = roll < 0.12;
       const highValue = !rare && roll < 0.27;
@@ -922,7 +907,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
   }
 
-  function spawnPowerup(g: GState) {
+  function spawnPowerup(g: GState, L: LayoutConstants) {
+    const { MID_Y, PLAY_H } = L;
     const types: PowerupType[] = ['shield', 'slowmo', 'double_score', 'magnet'];
     const weights = [0.30, 0.25, 0.25, 0.20];
     let r = Math.random();
@@ -936,7 +922,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     });
   }
 
-  function getHitboxes(obs: Obstacle): Rect[] {
+  function getHitboxes(obs: Obstacle, L: LayoutConstants): Rect[] {
+    const { FLOOR_TOP, CEIL_BOT, MID_Y, PLAY_H, P_SIZE } = L;
     switch (obs.type) {
       case 'floor_spike': case 'floor_spikes':
         return [{ left: obs.x + 3, right: obs.x + obs.width - 3, top: FLOOR_TOP - SPIKE_H + 7, bottom: FLOOR_TOP }];
@@ -957,10 +944,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       case 'spike_wall': {
         const GAP = P_SIZE + 18;
         if (obs.gapAtFloor) {
-          // Gap at floor: player must be on floor — solid block occupies top portion
           return [{ left: obs.x, right: obs.x + obs.width, top: CEIL_BOT, bottom: FLOOR_TOP - GAP }];
         }
-        // Gap at ceiling: player must be on ceiling — solid block occupies bottom portion
         return [{ left: obs.x, right: obs.x + obs.width, top: CEIL_BOT + GAP, bottom: FLOOR_TOP }];
       }
       default:
@@ -968,9 +953,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     }
   }
 
-
-  function spawnObstacleFromChunk(type: ObstacleType, totalTime: number, speed: number, spec?: Partial<Obstacle>): Obstacle {
-    const obs = spawnObstacle(totalTime, speed, type);
+  function spawnObstacleFromChunk(type: ObstacleType, totalTime: number, speed: number, spec: Partial<Obstacle> | undefined, L: LayoutConstants): Obstacle {
+    const obs = spawnObstacle(totalTime, speed, L, type);
     if (spec?.spikeCount) obs.spikeCount = spec.spikeCount;
     if (spec?.laserCycleOn) obs.laserCycleOn = spec.laserCycleOn;
     if (spec?.laserCycleOff) obs.laserCycleOff = spec.laserCycleOff;
@@ -978,39 +962,39 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     return obs;
   }
 
-  function spawnObstacle(totalTime: number, speed: number, forcedType?: ObstacleType): Obstacle {
+  function spawnObstacle(totalTime: number, speed: number, L: LayoutConstants, forcedType?: ObstacleType): Obstacle {
     const id = mkId(); const x = SW + 28;
     if (totalTime < 8) {
       return { id, type: Math.random() < 0.5 ? 'floor_spike' : 'ceiling_spike', x, width: SPIKE_W * 2 };
     }
     if (totalTime < 20) {
+      if (forcedType) {
+        if (forcedType === 'floor_spike') return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
+        if (forcedType === 'ceiling_spike') return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
+        if (forcedType === 'floor_spikes') return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+        if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+        if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
+        if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
+        if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+        if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
+      }
       const r = Math.random();
-    if (forcedType) {
-      if (forcedType === 'floor_spike') return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
-      if (forcedType === 'ceiling_spike') return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
-      if (forcedType === 'floor_spikes') return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
-      if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
-      if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
-      if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-      if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
-      if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
-    }
       if (r < 0.35) return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
       if (r < 0.7) return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
       return { id, type: 'floor_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
     }
     if (totalTime < 35) {
+      if (forcedType) {
+        if (forcedType === 'floor_spike') return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
+        if (forcedType === 'ceiling_spike') return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
+        if (forcedType === 'floor_spikes') return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+        if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+        if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
+        if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
+        if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+        if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
+      }
       const r = Math.random();
-    if (forcedType) {
-      if (forcedType === 'floor_spike') return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
-      if (forcedType === 'ceiling_spike') return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
-      if (forcedType === 'floor_spikes') return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
-      if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
-      if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
-      if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-      if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
-      if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
-    }
       if (r < 0.18) return { id, type: 'floor_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
       if (r < 0.36) return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
       if (r < 0.54) return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
@@ -1018,24 +1002,23 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 55 + Math.random() * 40 };
     }
     if (totalTime < 55) {
+      if (forcedType) {
+        if (forcedType === 'floor_spike') return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
+        if (forcedType === 'ceiling_spike') return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
+        if (forcedType === 'floor_spikes') return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+        if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
+        if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
+        if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
+        if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+        if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
+      }
       const r = Math.random();
-    if (forcedType) {
-      if (forcedType === 'floor_spike') return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
-      if (forcedType === 'ceiling_spike') return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
-      if (forcedType === 'floor_spikes') return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
-      if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
-      if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
-      if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-      if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
-      if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
-    }
       if (r < 0.2) return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
       if (r < 0.4) return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
       if (r < 0.58) return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 75 + Math.random() * 45 };
       if (r < 0.76) return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
       return { id, type: Math.random() < 0.5 ? 'floor_spikes' : 'ceiling_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
     }
-    const r = Math.random();
     if (forcedType) {
       if (forcedType === 'floor_spike') return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
       if (forcedType === 'ceiling_spike') return { id, type: 'ceiling_spike', x, width: SPIKE_W * 2 };
@@ -1046,6 +1029,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
       if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
     }
+    const r = Math.random();
     if (r < 0.12) return { id, type: 'spike_wall' as const, x, width: 10, gapAtFloor: Math.random() < 0.5 };
     if (r < 0.24) return { id, type: 'laser_gate' as const, x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
     if (r < 0.40) return { id, type: 'rotating_blade' as const, x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
@@ -1054,10 +1038,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     return { id, type: 'ceiling_spikes' as const, x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
   }
 
-  // ─── Tap handler ────────────────────────────────────────────────────────────
+  // ─── Tap handler ─────────────────────────────────────────────────────────────
 
   function handleTap() {
     const g = gRef.current;
+    const L = layoutRef.current;
+    const S = loopSettingsRef.current;
     if (g.phase !== 'playing') {
       loopActiveRef.current = false;
       return;
@@ -1067,30 +1053,28 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     gameAudio.playSfx('flip');
     g.onFloor = !g.onFloor;
     g.flipCount += 1;
-    const effectiveCooldown = [0.32, 0.26, 0.20, 0.14][upgrades.flip_speed] ?? 0.32;
+    const effectiveCooldown = [0.32, 0.26, 0.20, 0.14][S.upgrades.flip_speed] ?? 0.32;
     g.flipCooldown = effectiveCooldown;
     g.scaleY = 0.55;
     g.scaleX = 1.45;
 
-    // Add a flip ring
     g.flipRings.push({
       id: mkId(),
-      x: P_X + P_SIZE / 2,
-      y: g.playerY + P_SIZE / 2,
-      radius: P_SIZE * 0.4,
-      maxRadius: P_SIZE * 2.5,
+      x: L.P_X + L.P_SIZE / 2,
+      y: g.playerY + L.P_SIZE / 2,
+      radius: L.P_SIZE * 0.4,
+      maxRadius: L.P_SIZE * 2.5,
       life: 1,
-      color: skin.color,
+      color: S.skinColor,
     });
 
-    // Spawn dramatic flip trail streaks behind the player
-    const trailDef = TRAILS.find(t => t.id === selectedTrailId) || TRAILS[0];
+    const trailDef = TRAILS.find(t => t.id === S.selectedTrailId) || TRAILS[0];
     for (let i = 0; i < 14; i++) {
       const color = trailDef.colors[i % trailDef.colors.length];
       g.flipTrails.push({
         id: mkId(),
-        x: P_X - 4 - i * 10,
-        y: g.playerY + P_SIZE * 0.5 + (Math.random() - 0.5) * P_SIZE * 0.9,
+        x: L.P_X - 4 - i * 10,
+        y: g.playerY + L.P_SIZE * 0.5 + (Math.random() - 0.5) * L.P_SIZE * 0.9,
         w: 10 + Math.random() * 22,
         h: 2.5 + Math.random() * 4.5,
         life: 1.0 - i * 0.03,
@@ -1098,24 +1082,22 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       });
     }
 
-    // Perfect flip detection: is there an obstacle 60–180px ahead?
-    const nearObs = g.obstacles.find(o => o.x > P_X + 30 && o.x < P_X + 180);
+    const nearObs = g.obstacles.find(o => o.x > L.P_X + 30 && o.x < L.P_X + 180);
     if (nearObs) {
       g.perfectFlipTimer = GAME.PERFECT_FLIP_WINDOW;
     }
 
-    if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (S.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    runOnUI(() => {
-      'worklet';
-      flipPulseAnim.value = withTiming(1.12, { duration: 70 }, () => {
-        flipPulseAnim.value = withSpring(1, { damping: 12, stiffness: 220 });
-      });
-    })();
+    Animated.sequence([
+      Animated.timing(flipPulseAnim, { toValue: 1.12, duration: 70, useNativeDriver: true }),
+      Animated.timing(flipPulseAnim, { toValue: 1, duration: 130, useNativeDriver: true }),
+    ]).start();
   }
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
+  // FIX ①: read gRef.current directly — no snapshot copies, no useMemo allocations
   const g = gRef.current;
   const env = ENVIRONMENTS[ENV_ORDER[g.envIndex]];
   const speedNorm = Math.min((g.speed - GAME.OBSTACLE_SPEED_INITIAL) / (GAME.OBSTACLE_SPEED_MAX - GAME.OBSTACLE_SPEED_INITIAL), 1);
@@ -1124,6 +1106,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const canFlip = g.flipCooldown <= 0;
   const speedLineOpacityScale = (speedNorm - SPEED_LINE_THRESHOLD) / (1 - SPEED_LINE_THRESHOLD);
 
+  // These two are still memoised — they depend only on env/speedNorm which change infrequently
+  const speedOverlayStyle = useMemo(() => [styles.absoluteFill, { backgroundColor: env.obstacleColor, opacity: speedNorm * 0.06 }], [env.obstacleColor, speedNorm]);
+  const magnetAuraStyle = useMemo(() => [styles.absoluteFill, { backgroundColor: POWERUPS.magnet.color, opacity: 0.03 }], []);
+
   const activePowerups = useMemo(() => {
     const list: { type: PowerupType; timeLeft?: number }[] = [];
     if (g.powerupShieldActive) list.push({ type: 'shield' });
@@ -1131,14 +1117,13 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     if (g.powerupDoubleScoreTime > 0) list.push({ type: 'double_score', timeLeft: g.powerupDoubleScoreTime });
     if (g.powerupMagnetTime > 0) list.push({ type: 'magnet', timeLeft: g.powerupMagnetTime });
     return list;
-  }, [hud]);
+  // FIX ④: keyed on frameTick.hud — updates only when HUD tick fires, not every rAF
+  }, [frameTick.hud]);
 
-  // Find nearest upcoming obstacle for warning
   const warnObs = g.obstacles.find(o => o.x > P_X && o.x < P_X + 260);
 
-
   return (
-    <Reanimated.View style={[styles.container, { backgroundColor: env.bgTop }, containerAnimStyle]}>
+    <Animated.View style={[styles.container, { backgroundColor: env.bgTop, transform: [{ translateX: shakeAnim }] }]}>
       <TouchableOpacity style={styles.absoluteFill} onPress={handleTap} activeOpacity={1} />
 
       {/* Environment transition flash */}
@@ -1147,31 +1132,77 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         pointerEvents="none"
       />
 
-      <GameCanvas
-        gRef={gRef}
-        tick={visual}
-        env={env}
-        speedNorm={speedNorm}
-        speedLineOpacityScale={speedLineOpacityScale}
-        CEIL_BOT={CEIL_BOT}
-        FLOOR_TOP={FLOOR_TOP}
-        PLAY_H={PLAY_H}
-        MID_Y={MID_Y}
-        P_X={P_X}
-        P_SIZE={P_SIZE}
-        skin={skin}
-        flipPulseAnim={flipPulseAnim}
-        playerY={playerY}
-        playerScaleX={playerScaleX}
-        playerScaleY={playerScaleY}
-        popupAnim={popupAnim}
-        popupScaleAnim={popupScaleAnim}
-      />
+      {/* Speed overlay */}
+      {speedNorm > 0.1 && (
+        <View style={speedOverlayStyle} pointerEvents="none" />
+      )}
+
+      {/* Magnet aura */}
+      {g.powerupMagnetTime > 0 && (
+        <View style={magnetAuraStyle} pointerEvents="none" />
+      )}
+
+      {/* Background parallax nodes — FIX ③: key on stable n.id */}
+      <View style={styles.absoluteFill} pointerEvents="none">
+        {g.bgFar.map((n) => (
+          <View key={n.id} style={{
+            position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2,
+            width: n.size, height: n.size, borderRadius: n.size / 2,
+            backgroundColor: env.nodeFarColor, opacity: n.opacity * 0.5,
+          }} />
+        ))}
+        {g.bgMid.map((n) => (
+          <View key={n.id} style={{
+            position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2,
+            width: n.size + 1, height: n.size + 1, borderRadius: (n.size + 1) / 2,
+            backgroundColor: env.nodeMidColor, opacity: n.opacity * 0.6,
+          }} />
+        ))}
+        {/* Connecting lines for mid nodes */}
+        {g.bgMid.slice(0, -1).map((n, i) => {
+          const next = g.bgMid[i + 1];
+          const dx = next.x - n.x; const dy = next.y - n.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 160) return null;
+          const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+          return (
+            <View key={`l-${n.id}`} style={{
+              position: 'absolute', left: n.x, top: n.y - 0.5,
+              width: dist, height: 1,
+              backgroundColor: env.nodeFarColor,
+              opacity: (1 - dist / 160) * 0.3,
+              transform: [{ rotate: `${angle}deg` }, { translateX: 0 }],
+            }} />
+          );
+        })}
+      </View>
+
+      {/* Horizontal grid lines */}
+      <View style={styles.absoluteFill} pointerEvents="none">
+        {GRID_LINE_FRACTIONS.map(f => (
+          <View key={f} style={{ position: 'absolute', left: 0, right: 0, top: CEIL_BOT + PLAY_H * f, height: 1, backgroundColor: env.gridColor }} />
+        ))}
+      </View>
+
+      {/* Speed lines */}
+      {speedNorm > SPEED_LINE_THRESHOLD && (
+        <View style={styles.absoluteFill} pointerEvents="none">
+          {SPEED_LINE_FRACTIONS.map((f, i) => (
+            <View key={`speed-line-${f}`} style={{
+              position: 'absolute',
+              left: 0, right: 0,
+              top: CEIL_BOT + PLAY_H * f,
+              height: 1,
+              backgroundColor: env.accentColor,
+              opacity: speedLineOpacityScale * SPEED_LINE_OPACITY_FACTORS[i],
+            }} />
+          ))}
+        </View>
+      )}
 
       {/* Ceiling wall */}
       <View style={[styles.wall, { top: HEADER_H, height: WALL_T, backgroundColor: env.wallColor }]}>
         <View style={[styles.wallGlowLine, { borderBottomColor: env.wallGlow, opacity: 0.8 }]} />
-        {/* Wall dots */}
         {WALL_DOT_FRACTIONS.map((f, i) => (
           <View key={`ceil-dot-${f}`} style={[styles.wallDot, { left: SW * f, backgroundColor: env.wallGlow, opacity: 0.4 + Math.sin(g.totalTime * 2 + i) * 0.2 }]} />
         ))}
@@ -1207,10 +1238,140 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         }]} pointerEvents="none" />
       )}
 
+      {/* FIX ①: render directly from gRef — no snapshot arrays */}
+
+      {/* Flip trail streaks */}
+      {g.flipTrails.map(ft => (
+        <View key={ft.id} pointerEvents="none" style={{
+          position: 'absolute',
+          left: ft.x - ft.w / 2, top: ft.y - ft.h / 2,
+          width: ft.w, height: ft.h,
+          borderRadius: ft.h / 2,
+          backgroundColor: ft.color,
+          opacity: Math.max(0, ft.life * 0.85),
+          shadowColor: ft.color,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.9,
+          shadowRadius: 5,
+        }} />
+      ))}
+
+      {/* Trail particles */}
+      {g.trail.map(t => (
+        <View key={t.id} pointerEvents="none" style={{
+          position: 'absolute',
+          left: t.x - t.size / 2, top: t.y - t.size / 2,
+          width: t.size, height: t.size,
+          borderRadius: t.size / 2,
+          backgroundColor: t.color,
+          opacity: Math.max(0, t.life * 0.75),
+        }} />
+      ))}
+
+      {/* Flip rings */}
+      {g.flipRings.map(r => (
+        <View key={r.id} pointerEvents="none" style={{
+          position: 'absolute',
+          left: r.x - r.radius, top: r.y - r.radius,
+          width: r.radius * 2, height: r.radius * 2,
+          borderRadius: r.radius,
+          borderWidth: 1.5,
+          borderColor: r.color,
+          opacity: Math.max(0, r.life * 0.6),
+        }} />
+      ))}
+
+      {/* Obstacles */}
+      {g.obstacles.map(obs => (
+        <ObstacleComp key={obs.id} obs={obs} ceilBot={CEIL_BOT} floorTop={FLOOR_TOP} midY={MID_Y} color={env.obstacleColor} />
+      ))}
+
+      {/* Coins */}
+      {g.coins.map(coin => {
+        const R = coin.rare ? GAME.COIN_VISUAL_RADIUS * 1.7 : coin.highValue ? GAME.COIN_VISUAL_RADIUS * 1.35 : GAME.COIN_VISUAL_RADIUS * 1.1;
+        return (
+          <View key={coin.id} pointerEvents="none" style={{
+            position: 'absolute',
+            left: coin.x - R, top: coin.y - R,
+            width: R * 2, height: R * 2,
+          }}>
+            {coin.rare
+              ? <CoinLegendarySvg size={R * 2} />
+              : coin.highValue
+              ? <CoinRareSvg size={R * 2} />
+              : <CoinStandardSvg size={R * 2} />}
+          </View>
+        );
+      })}
+
+      {/* Power-up pickups */}
+      {g.powerupPickups.map(pu => (
+        <PowerupPickupComp key={pu.id} pu={pu} />
+      ))}
+
+      {/* Shield orb */}
+      {g.powerupShieldActive && (
+        <View pointerEvents="none" style={{
+          position: 'absolute', left: P_X - 9, top: g.playerY - 9,
+          width: P_SIZE + 18, height: P_SIZE + 18, borderRadius: (P_SIZE + 18) / 2,
+          borderWidth: 2, borderColor: COLORS.neonCyan,
+          backgroundColor: 'rgba(0, 245, 255, 0.08)',
+          shadowColor: COLORS.neonCyan, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 12,
+        }} />
+      )}
+
+      {/* Magnet field ring */}
+      {g.powerupMagnetTime > 0 && (
+        <View pointerEvents="none" style={{
+          position: 'absolute',
+          left: P_X + P_SIZE / 2 - MAGNET_RANGE, top: g.playerY + P_SIZE / 2 - MAGNET_RANGE,
+          width: MAGNET_RANGE * 2, height: MAGNET_RANGE * 2, borderRadius: MAGNET_RANGE,
+          borderWidth: 1, borderColor: POWERUPS.magnet.color,
+          opacity: 0.15,
+        }} />
+      )}
+
+      {/* Player */}
+      <Animated.View style={{
+        position: 'absolute', left: P_X,
+        width: P_SIZE, height: P_SIZE,
+        transform: [{ translateY: playerYAnim }, { scaleX: playerScaleXAnim }, { scaleY: playerScaleYAnim }, { scale: flipPulseAnim }],
+      }} pointerEvents="none">
+        <PlayerBody skin={skin} size={P_SIZE} onFloor={g.onFloor} velocity={g.playerVelocity} />
+      </Animated.View>
+
+      {/* Burst particles */}
+      {g.bursts.map(b => (
+        <View key={b.id} pointerEvents="none" style={{
+          position: 'absolute', left: b.x - b.size / 2, top: b.y - b.size / 2,
+          width: b.size, height: b.size, borderRadius: b.size / 2,
+          backgroundColor: b.color, opacity: Math.max(0, b.life),
+        }} />
+      ))}
+
+      {/* Popup text */}
+      {g.popup && (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.popupWrapper, {
+            top: MID_Y - 30,
+            opacity: popupAnim,
+            transform: [{ scale: popupScaleAnim }, { translateY: popupAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+          }]}
+        >
+          <Text style={[
+            styles.popupText,
+            { color: g.popup.color },
+            g.popup.size === 'lg' && styles.popupTextLg,
+            g.popup.size === 'sm' && styles.popupTextSm,
+          ]}>
+            {g.popup.text}
+          </Text>
+        </Animated.View>
+      )}
 
       {/* Header HUD */}
       <View style={[styles.header, { paddingTop: topPadding + 8, height: HEADER_H }]}>
-        {/* Score + coins */}
         <View style={styles.scoreBlock}>
           <Text style={styles.scoreText}>{score}</Text>
           {g.coinsCollected > 0 && (
@@ -1221,14 +1382,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
           )}
         </View>
 
-        {/* Combo badge */}
         {comboMult > 1 && g.comboDisplayTimer > 0 && (
           <View style={[styles.comboBadge, { borderColor: env.accentColor, backgroundColor: `${env.accentColor}18` }]}>
             <Text style={[styles.comboText, { color: env.accentColor }]}>{comboLabel}</Text>
           </View>
         )}
 
-        {/* Flip ready indicator */}
         <View style={[styles.flipIndicator, {
           borderColor: canFlip ? env.accentColor : 'rgba(255,255,255,0.10)',
           backgroundColor: canFlip ? `${env.accentColor}18` : 'rgba(255,255,255,0.04)',
@@ -1288,11 +1447,11 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
           </Text>
         </View>
       )}
-    </Reanimated.View>
+    </Animated.View>
   );
 });
 
-// ─── Sub-components ─────────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function PlayerBody({ skin, size, onFloor, velocity }: {
   skin: typeof SKINS[0]; size: number; onFloor: boolean; velocity: number;
@@ -1346,7 +1505,6 @@ function SpikeGroup({ count, fromFloor, x, floorTop, ceilBot, color }: {
   );
 }
 
-
 function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
   obs: Obstacle; ceilBot: number; floorTop: number; midY: number; color: string;
 }) {
@@ -1384,7 +1542,7 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
     );
   }
   if (obs.type === 'spike_wall') {
-    const GAP = 26 + 18; // P_SIZE + 18 (matching hitbox)
+    const GAP = 26 + 18;
     const wallAsset: HudAssetName = obs.gapAtFloor ? 'obstacle_narrow_tunnel' : 'obstacle_narrow_tunnel_offset';
     const top = obs.gapAtFloor ? ceilBot : ceilBot + GAP - 8;
     return (
@@ -1414,7 +1572,7 @@ function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
   return null;
 }
 
-// ─── Styles ─────────────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
