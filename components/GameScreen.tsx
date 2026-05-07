@@ -1579,7 +1579,7 @@ const SpikeGroup = React.memo(function SpikeGroup({ count, fromFloor, x, floorTo
   count: number; fromFloor: boolean; x: number;
   floorTop: number; ceilBot: number; color: string;
 }) {
-  const w = count === 1 ? 48 : count === 2 ? 64 : 80;
+  const w = count === 1 ? SPIKE_W * 2 : count === 2 ? SPIKE_W * 4 + 4 : SPIKE_W * 6 + 8;
   if (fromFloor) {
     return (
       <View style={{ position: 'absolute', left: x, top: floorTop - SPIKE_H }} pointerEvents="none">
