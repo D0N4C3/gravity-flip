@@ -26,11 +26,11 @@ export function CoinLegendarySvg({ size }: { size: number }) {
 // ─── Obstacles ───────────────────────────────────────────────────────────────
 
 export function ObstacleFloorSpikesSvg({ width, height }: { width: number; height: number }) {
-  return <SvgXml xml={obstacle_floor_spikes} width={width} height={height} />;
+  return <SvgXml xml={obstacle_floor_spikes} width={width} height={height} preserveAspectRatio="none" />;
 }
 
 export function ObstacleCeilingSpikesSvg({ width, height }: { width: number; height: number }) {
-  return <SvgXml xml={obstacle_ceiling_spikes} width={width} height={height} />;
+  return <SvgXml xml={obstacle_ceiling_spikes} width={width} height={height} preserveAspectRatio="none" />;
 }
 
 export function ObstacleRotatingBladeSvg({ size, rotation }: { size: number; rotation: number }) {
