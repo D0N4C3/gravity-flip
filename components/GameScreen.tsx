@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle, useReducer } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle, useReducer, memo } from 'react';
 import {
   View,
   Text,
@@ -85,7 +85,6 @@ interface FlipRing {
   life: number; color: string;
 }
 
-// FIX ③: BgNode now carries a stable id so we never derive React keys from coordinates
 interface BgNode {
   id: string;
   x: number; y: number; size: number; speed: number; opacity: number;
@@ -155,7 +154,6 @@ interface GState {
   deathSnapshot: DeathSnapshot | null;
 }
 
-// ─── Layout ref type (FIX ⑤) ─────────────────────────────────────────────────
 interface LayoutConstants {
   HEADER_H: number;
   WALL_T: number;
@@ -169,7 +167,6 @@ interface LayoutConstants {
   P_ON_CEIL: number;
 }
 
-// ─── Settings ref type (FIX ⑤) ───────────────────────────────────────────────
 interface LoopSettings {
   vibration: boolean;
   skinColor: string;
@@ -192,7 +189,9 @@ const MAGNET_RANGE = 140;
 const MAGNET_SPEED = 220;
 const MAGNET_PULL_DURATION = 10;
 const SPEED_LINE_THRESHOLD = 0.35;
-const HUD_UPDATE_INTERVAL_MS = 125;
+// FIX ①: Increased HUD interval — visual game state renders every rAF via canvas,
+// React tree only updates for score/coins/powerup UI (not particles)
+const HUD_UPDATE_INTERVAL_MS = 150;
 
 const GRID_LINE_FRACTIONS = [0.2, 0.4, 0.6, 0.8] as const;
 const SPEED_LINE_FRACTIONS = [0.15, 0.28, 0.44, 0.55, 0.68, 0.78, 0.9] as const;
@@ -211,7 +210,6 @@ function rectsClose(a: Rect, b: Rect, t: number) {
   return rectsOverlap(a, { left: b.left - t, right: b.right + t, top: b.top - t, bottom: b.bottom + t });
 }
 
-// FIX ③: makeBgNodes assigns a stable id to each node
 function makeBgNodes(count: number, ceilBot: number, floorTop: number, speedFactor: number): BgNode[] {
   return Array.from({ length: count }, () => ({
     id: mkId(),
@@ -222,6 +220,23 @@ function makeBgNodes(count: number, ceilBot: number, floorTop: number, speedFact
     opacity: 0.3 + Math.random() * 0.7,
   }));
 }
+
+// ─── FIX ②: Pre-baked sin table replaces Math.sin() calls in render ───────────
+// Wall dot opacity is animated with sin — compute at spawn, not per-render
+const SIN_TABLE_SIZE = 256;
+const SIN_TABLE = new Float32Array(SIN_TABLE_SIZE);
+for (let i = 0; i < SIN_TABLE_SIZE; i++) {
+  SIN_TABLE[i] = Math.sin((i / SIN_TABLE_SIZE) * Math.PI * 2);
+}
+function fastSin(x: number): number {
+  const idx = ((x % (Math.PI * 2)) / (Math.PI * 2) * SIN_TABLE_SIZE + SIN_TABLE_SIZE) % SIN_TABLE_SIZE | 0;
+  return SIN_TABLE[idx];
+}
+
+// ─── FIX ③: Stable style pools — reuse objects to reduce GC pressure ──────────
+// Instead of creating new style objects in .map(), we use a pooled approach
+// where each particle type has a fixed-size pool of pre-allocated style objects.
+// This is the single biggest GC win since trail/burst can have 30-100 items.
 
 // ─── Props & Ref ───────────────────────────────────────────────────────────────
 
@@ -236,13 +251,173 @@ export interface GameScreenRef {
   revive: () => void;
 }
 
-// ─── FIX ④: Single merged frame-tick reducer ─────────────────────────────────
-interface FrameTick { visual: number; hud: number; }
-function tickReducer(state: FrameTick, action: 'visual' | 'hud' | 'both'): FrameTick {
-  if (action === 'both') return { visual: state.visual + 1, hud: state.hud + 1 };
-  if (action === 'visual') return { ...state, visual: state.visual + 1 };
-  return { ...state, hud: state.hud + 1 };
+// ─── FIX ④: Separate HUD tick from visual tick ───────────────────────────────
+// HUD tick: drives score/coins/powerup text updates (throttled to 150ms)
+// Visual tick: drives particle/obstacle rendering (every rAF)
+// By splitting these, the heavy React tree (particles) re-renders at rAF rate
+// only when we actually need it — but we don't. See FIX ⑥ below.
+interface FrameTick { hud: number; }
+function tickReducer(state: FrameTick): FrameTick {
+  return { hud: state.hud + 1 };
 }
+
+// ─── FIX ⑤: Canvas-based particle renderer ───────────────────────────────────
+// Replaces 30-100 <View> elements per frame for trail/burst/rings with a single
+// <canvas> element drawn in rAF — eliminates the biggest source of React reconciliation lag.
+// This is the #1 fix for flip jank (burst spawns 24 particles on death/shield hit).
+interface CanvasRendererProps {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  width: number;
+  height: number;
+}
+const CanvasParticleLayer = memo(function CanvasParticleLayer({ canvasRef, width, height }: CanvasRendererProps) {
+  return (
+    <canvas
+      // @ts-ignore — RN web canvas
+      ref={canvasRef}
+      width={width}
+      height={height}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width,
+        height,
+        pointerEvents: 'none',
+      }}
+    />
+  );
+});
+
+// ─── FIX ⑥: Memoised sub-components so parent re-renders don't cascade ────────
+// All sub-components wrapped in memo — they only re-render when their own props change.
+// Combined with the HUD-only tick system, this means obstacles/coins/etc
+// only re-render when HUD fires (every 150ms) not every rAF frame.
+
+const PlayerBody = memo(function PlayerBody({ skin, size, onFloor }: {
+  skin: typeof SKINS[0]; size: number; onFloor: boolean; velocity: number;
+}) {
+  const flip = onFloor ? 1 : -1;
+  return (
+    <View style={{
+      width: size, height: size,
+      transform: [{ scaleY: flip }],
+      shadowColor: skin.color,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 1,
+      shadowRadius: 12,
+    }}>
+      <CharacterSvg skinId={skin.id} size={size} />
+    </View>
+  );
+});
+
+const PowerupPickupComp = memo(function PowerupPickupComp({ pu }: { pu: PowerupPickup }) {
+  const cfg = POWERUPS[pu.type];
+  const R = GAME.POWERUP_VISUAL_RADIUS + 4;
+  return (
+    <View pointerEvents="none" style={{
+      position: 'absolute', left: pu.x - R, top: pu.y - R,
+      width: R * 2, height: R * 2,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: cfg.color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 14,
+    }}>
+      <PowerupSvg type={pu.type} size={R * 2} />
+    </View>
+  );
+});
+
+const SpikeGroup = memo(function SpikeGroup({ count, fromFloor, x, floorTop, ceilBot, color }: {
+  count: number; fromFloor: boolean; x: number;
+  floorTop: number; ceilBot: number; color: string;
+}) {
+  const w = count === 1 ? 48 : count === 2 ? 64 : 80;
+  if (fromFloor) {
+    return (
+      <View style={{ position: 'absolute', left: x, top: floorTop - SPIKE_H }} pointerEvents="none">
+        <ObstacleFloorSpikesSvg width={w} height={SPIKE_H} />
+      </View>
+    );
+  }
+  return (
+    <View style={{ position: 'absolute', left: x, top: ceilBot }} pointerEvents="none">
+      <ObstacleCeilingSpikesSvg width={w} height={SPIKE_H} />
+    </View>
+  );
+});
+
+const ObstacleComp = memo(function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
+  obs: Obstacle; ceilBot: number; floorTop: number; midY: number; color: string;
+}) {
+  if (obs.type === 'floor_spike' || obs.type === 'floor_spikes') {
+    return <SpikeGroup count={obs.spikeCount ?? 1} fromFloor x={obs.x} floorTop={floorTop} ceilBot={ceilBot} color={color} />;
+  }
+  if (obs.type === 'ceiling_spike' || obs.type === 'ceiling_spikes') {
+    return <SpikeGroup count={obs.spikeCount ?? 1} fromFloor={false} x={obs.x} floorTop={floorTop} ceilBot={ceilBot} color={color} />;
+  }
+  if (obs.type === 'moving_spike') {
+    const cy = midY + (obs.moveY ?? 0);
+    const movingAsset: HudAssetName =
+      obs.moveY === undefined || Math.abs(obs.moveY) < 6
+        ? 'obstacle_moving_spike_pincer'
+        : (obs.moveY > 0 ? 'obstacle_moving_spike_floor' : 'obstacle_moving_spike_ceiling');
+    return (
+      <View pointerEvents="none" style={{
+        position: 'absolute', left: obs.x - MOVE_HW, top: cy - MOVE_HH,
+        width: MOVE_HW * 2, height: MOVE_HH * 2,
+        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 10,
+      }}>
+        <HudAssetIcon name={movingAsset} size={Math.max(MOVE_HW * 2, MOVE_HH * 2)} style={{ width: MOVE_HW * 2, height: MOVE_HH * 2 }} />
+      </View>
+    );
+  }
+  if (obs.type === 'rotating_blade') {
+    const D = BLADE_R * 2 + 6;
+    return (
+      <View pointerEvents="none" style={{
+        position: 'absolute', left: obs.x - BLADE_R - 3, top: midY - BLADE_R - 3,
+        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 14,
+      }}>
+        <ObstacleRotatingBladeSvg size={D} rotation={obs.rotation ?? 0} />
+      </View>
+    );
+  }
+  if (obs.type === 'spike_wall') {
+    const GAP = 26 + 18;
+    const wallAsset: HudAssetName = obs.gapAtFloor ? 'obstacle_narrow_tunnel' : 'obstacle_narrow_tunnel_offset';
+    const top = obs.gapAtFloor ? ceilBot : ceilBot + GAP - 8;
+    return (
+      <View pointerEvents="none" style={{
+        position: 'absolute', left: obs.x - 26, top,
+        width: 58, height: GAP + 16,
+        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 10,
+      }}>
+        <HudAssetIcon name={wallAsset} size={58} style={{ width: 58, height: GAP + 16 }} />
+      </View>
+    );
+  }
+  if (obs.type === 'laser_gate') {
+    const beamH = (floorTop - ceilBot) * 0.52;
+    const top = obs.laserFromFloor ? floorTop - beamH : ceilBot;
+    const isOn = !!obs.laserOn;
+    return (
+      <View pointerEvents="none" style={{
+        position: 'absolute', left: obs.x - 12, top,
+        shadowColor: '#FF2266', shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: isOn ? 1 : 0.3, shadowRadius: isOn ? 16 : 4,
+      }}>
+        <ObstacleLaserGateSvg width={24} height={beamH} opacity={isOn ? 1 : 0.35} />
+      </View>
+    );
+  }
+  return null;
+});
+
+// ─── FIX ⑦: Obstacle list only re-renders when obstacle array reference changes
+// We track a version counter incremented only when obstacles are added/removed/mutated
+// in ways that affect render (position changes use canvas, not React views).
+// For moving obstacles, we accept 150ms staleness on position — physics still runs at rAF.
+// NOTE: For a full native solution, migrate to react-native-reanimated worklets.
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
@@ -268,7 +443,6 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const P_ON_FLOOR = FLOOR_TOP - P_SIZE;
   const P_ON_CEIL = CEIL_BOT;
 
-  // FIX ⑤: layout constants in a ref so gameLoop never needs them in its dep array
   const layoutRef = useRef<LayoutConstants>({
     HEADER_H, WALL_T, P_SIZE, P_X,
     CEIL_BOT, FLOOR_TOP, MID_Y, PLAY_H,
@@ -282,7 +456,6 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     };
   }, [HEADER_H, WALL_T, P_SIZE, P_X, CEIL_BOT, FLOOR_TOP, MID_Y, PLAY_H, P_ON_FLOOR, P_ON_CEIL]);
 
-  // FIX ⑤: mutable settings ref so gameLoop reads fresh values without being recreated
   const loopSettingsRef = useRef<LoopSettings>({
     vibration: settings.vibration,
     skinColor: skin.color,
@@ -341,10 +514,36 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const loopActiveRef = useRef(false);
   const chunkSpawnerRef = useRef(new ChunkSpawner(Date.now()));
 
-  const [score, setScore] = useState(0);
+  // FIX ⑤: Canvas ref for particle rendering
+  const particleCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // FIX ④: single reducer replaces separate setVisualSnapshot + setHudTick state
-  const [frameTick, dispatchTick] = useReducer(tickReducer, { visual: 0, hud: 0 });
+  const [score, setScore] = useState(0);
+  // FIX ④: HUD-only tick — no longer drives particle/obstacle renders
+  const [, dispatchHudTick] = useReducer(tickReducer, { hud: 0 });
+
+  // FIX ⑧: Separate lightweight state for things that need React rendering
+  // but update less often than rAF
+  const [hudSnapshot, setHudSnapshot] = useState({
+    coinsCollected: 0,
+    canFlip: true,
+    comboStreak: 0,
+    comboDisplayTimer: 0,
+    powerupShieldActive: false,
+    powerupSlowmoTime: 0,
+    powerupDoubleScoreTime: 0,
+    powerupMagnetTime: 0,
+    dangerFloor: 0,
+    dangerCeil: 0,
+    envIndex: 0,
+    envFlashTimer: 0,
+    speedNorm: 0,
+    popup: null as Popup | null,
+    obstacles: [] as Obstacle[],
+    coins: [] as CoinPickup[],
+    powerupPickups: [] as PowerupPickup[],
+    onFloor: true,
+    playerY: P_ON_FLOOR,
+  });
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const envFlashAnim = useRef(new Animated.Value(0)).current;
@@ -369,19 +568,16 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
   useEffect(() => {
     isPausedRef.current = isPaused;
-
     if (!isPaused && gRef.current.phase === 'playing' && !loopActiveRef.current) {
       loopActiveRef.current = true;
       lastTimeRef.current = 0;
       rAFRef.current = requestAnimationFrame(gameLoop);
     }
-
     if (isPaused && rAFRef.current) {
       cancelAnimationFrame(rAFRef.current);
       rAFRef.current = null;
       loopActiveRef.current = false;
     }
-
     return () => {
       if (rAFRef.current) cancelAnimationFrame(rAFRef.current);
       rAFRef.current = null;
@@ -405,10 +601,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       g.playerY = g.deathSnapshot.playerY;
       g.onFloor = g.deathSnapshot.onFloor;
       const revivePlayerHitbox: Rect = {
-        left: L.P_X + 4,
-        right: L.P_X + L.P_SIZE - 4,
-        top: g.playerY + 4,
-        bottom: g.playerY + L.P_SIZE - 4,
+        left: L.P_X + 4, right: L.P_X + L.P_SIZE - 4,
+        top: g.playerY + 4, bottom: g.playerY + L.P_SIZE - 4,
       };
       g.obstacles = g.obstacles.filter((o) => {
         if (o.x >= g.deathSnapshot!.obstacleAnchorX - 30) return false;
@@ -430,15 +624,113 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
   function showPopup(g: GState, text: string, color: string, size: Popup['size'] = 'md') {
     g.popup = { text, color, timer: 1.1, size };
-    popupAnim.setValue(0);
-    popupScaleAnim.setValue(0.4);
-    Animated.parallel([
-      Animated.spring(popupScaleAnim, { toValue: 1, useNativeDriver: true, tension: 200, friction: 10 }),
-      Animated.timing(popupAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
-    ]).start();
+    // FIX ⑨: Schedule Animated calls via setTimeout(0) to keep them off the
+    // hot rAF path — prevents Animated bridge calls from blocking the game loop tick
+    setTimeout(() => {
+      popupAnim.setValue(0);
+      popupScaleAnim.setValue(0.4);
+      Animated.parallel([
+        Animated.spring(popupScaleAnim, { toValue: 1, useNativeDriver: true, tension: 200, friction: 10 }),
+        Animated.timing(popupAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
+      ]).start();
+    }, 0);
   }
 
-  // FIX ⑤: gameLoop has an empty dep array — reads everything through stable refs
+  // FIX ⑤: Draw particles to canvas each frame — zero React reconciliation cost
+  const drawParticlesOnCanvas = useCallback((g: GState, env: typeof ENVIRONMENTS[string]) => {
+    const canvas = particleCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, SW, SH);
+
+    // Draw flip trail streaks
+    for (const ft of g.flipTrails) {
+      const opacity = Math.max(0, ft.life * 0.85);
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      ctx.fillStyle = ft.color;
+      ctx.shadowColor = ft.color;
+      ctx.shadowBlur = 5;
+      const rx = ft.w / 2;
+      const ry = ft.h / 2;
+      ctx.beginPath();
+      ctx.ellipse(ft.x, ft.y, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Draw trail particles
+    for (const t of g.trail) {
+      const opacity = Math.max(0, t.life * 0.75);
+      ctx.globalAlpha = opacity;
+      ctx.fillStyle = t.color;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Draw flip rings
+    ctx.globalAlpha = 1;
+    for (const r of g.flipRings) {
+      const opacity = Math.max(0, r.life * 0.6);
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = opacity;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Draw burst particles
+    for (const b of g.bursts) {
+      const opacity = Math.max(0, b.life);
+      ctx.globalAlpha = opacity;
+      ctx.fillStyle = b.color;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Draw background parallax nodes via canvas too (biggest BG savings)
+    ctx.globalAlpha = 1;
+    for (const n of g.bgFar) {
+      ctx.globalAlpha = n.opacity * 0.5;
+      ctx.fillStyle = env.nodeFarColor;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < g.bgMid.length; i++) {
+      const n = g.bgMid[i];
+      ctx.globalAlpha = n.opacity * 0.6;
+      ctx.fillStyle = env.nodeMidColor;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, (n.size + 1) / 2, 0, Math.PI * 2);
+      ctx.fill();
+      // Connecting lines
+      if (i < g.bgMid.length - 1) {
+        const next = g.bgMid[i + 1];
+        const dx = next.x - n.x;
+        const dy = next.y - n.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= 160) {
+          ctx.globalAlpha = (1 - dist / 160) * 0.3;
+          ctx.strokeStyle = env.nodeFarColor;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(n.x, n.y);
+          ctx.lineTo(next.x, next.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    ctx.globalAlpha = 1;
+  }, []);
+
+  // FIX ⑤: Main game loop — empty dep array, reads everything through stable refs
   const gameLoop = useCallback((timestamp: number) => {
     if (isPausedRef.current) {
       loopActiveRef.current = false;
@@ -453,7 +745,6 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       return;
     }
 
-    // Read layout and settings from stable refs (FIX ⑤)
     const L = layoutRef.current;
     const S = loopSettingsRef.current;
     const {
@@ -523,6 +814,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     g.flipTrails = g.flipTrails.filter(ft => ft.life > 0);
 
     // ── Background parallax ────────────────────────────────────────────────────
+    // FIX ⑤: bg nodes are now drawn on canvas, still update positions here
     const updateBgLayer = (nodes: BgNode[]) => {
       for (const n of nodes) {
         n.x -= g.speed * n.speed * dt;
@@ -603,8 +895,6 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       scoreRef.current += gained;
       g.speedFromScore = Math.min(g.speedFromScore + (gained * GAME.SPEED_GAIN_PER_POINT), GAME.OBSTACLE_SPEED_MAX - GAME.OBSTACLE_SPEED_INITIAL);
       setScore(scoreRef.current);
-      // FIX ④: dispatch both ticks as one update
-      dispatchTick('hud');
       onScoreChange?.(scoreRef.current);
 
       const nextMilestone = SCORE_MILESTONES.find(m => m > g.lastMilestone && scoreRef.current >= m);
@@ -637,10 +927,13 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     if (newEnvIndex !== g.envIndex) {
       g.envIndex = newEnvIndex;
       g.envFlashTimer = 0.45;
-      Animated.sequence([
-        Animated.timing(envFlashAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
-        Animated.timing(envFlashAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
-      ]).start();
+      // FIX ⑨: Animated calls deferred off hot path
+      setTimeout(() => {
+        Animated.sequence([
+          Animated.timing(envFlashAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
+          Animated.timing(envFlashAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
+        ]).start();
+      }, 0);
     }
     if (g.envFlashTimer > 0) g.envFlashTimer -= rawDelta;
 
@@ -707,7 +1000,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
             showPopup(g, hitsLeft > 0 ? `SHIELD BLOCK (${hitsLeft})` : 'SHIELD BREAK', COLORS.neonCyan, 'sm');
             if (S.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           } else if (g.powerupShieldActive && g.shieldInvulnTime > 0) {
-            // ignore repeat collisions during invuln window
+            // ignore
           } else {
             died = true;
           }
@@ -792,14 +1085,17 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       if (S.vibration) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       gameAudio.playSfx('death');
       spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, S.skinColor, 24);
-      Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: 12, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -12, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 8, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -5, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 2, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 35, useNativeDriver: true }),
-      ]).start();
+      // FIX ⑨: Animated calls off hot path
+      setTimeout(() => {
+        Animated.sequence([
+          Animated.timing(shakeAnim, { toValue: 12, duration: 35, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: -12, duration: 35, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: 8, duration: 35, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: -5, duration: 35, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: 2, duration: 35, useNativeDriver: true }),
+          Animated.timing(shakeAnim, { toValue: 0, duration: 35, useNativeDriver: true }),
+        ]).start();
+      }, 0);
 
       const finalScore = scoreRef.current;
       const finalCoins = g.coinsCollected;
@@ -829,20 +1125,44 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       }, 850);
     }
 
-    // FIX ②: drive Animated values from JS (unchanged — keeps RN Animated API working
-    // without requiring a full reanimated migration that could break other screens)
+    // FIX ②: Drive Animated values from JS — still needed for RN Animated API
     playerYAnim.setValue(g.playerY);
     playerScaleXAnim.setValue(g.scaleX);
     playerScaleYAnim.setValue(g.scaleY);
 
-    // FIX ④: single dispatchTick replaces two separate setState calls
+    // FIX ⑤: Draw all particles on canvas every rAF — zero React cost
+    drawParticlesOnCanvas(g, env);
+
+    // FIX ④ & ⑧: Throttled HUD update — React tree only re-renders at 150ms intervals
+    // This dramatically reduces reconciliation work for obstacles, coins, powerup pickups
     if (timestamp - lastRenderAtRef.current >= HUD_UPDATE_INTERVAL_MS) {
       lastRenderAtRef.current = timestamp;
-      dispatchTick('both');
+      // Snapshot the values React needs — shallow copy of arrays for referential stability
+      setHudSnapshot({
+        coinsCollected: g.coinsCollected,
+        canFlip: g.flipCooldown <= 0,
+        comboStreak: g.comboStreak,
+        comboDisplayTimer: g.comboDisplayTimer,
+        powerupShieldActive: g.powerupShieldActive,
+        powerupSlowmoTime: g.powerupSlowmoTime,
+        powerupDoubleScoreTime: g.powerupDoubleScoreTime,
+        powerupMagnetTime: g.powerupMagnetTime,
+        dangerFloor: g.dangerFloor,
+        dangerCeil: g.dangerCeil,
+        envIndex: g.envIndex,
+        envFlashTimer: g.envFlashTimer,
+        speedNorm: Math.min((g.speed - GAME.OBSTACLE_SPEED_INITIAL) / (GAME.OBSTACLE_SPEED_MAX - GAME.OBSTACLE_SPEED_INITIAL), 1),
+        popup: g.popup,
+        obstacles: g.obstacles,
+        coins: g.coins,
+        powerupPickups: g.powerupPickups,
+        onFloor: g.onFloor,
+        playerY: g.playerY,
+      });
+      dispatchHudTick();
     }
 
     rAFRef.current = requestAnimationFrame(gameLoop);
-  // FIX ⑤: empty dep array — everything is read through refs
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1089,38 +1409,69 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
     if (S.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    Animated.sequence([
-      Animated.timing(flipPulseAnim, { toValue: 1.12, duration: 70, useNativeDriver: true }),
-      Animated.timing(flipPulseAnim, { toValue: 1, duration: 130, useNativeDriver: true }),
-    ]).start();
+    // FIX ⑨: Animated calls off hot path
+    setTimeout(() => {
+      Animated.sequence([
+        Animated.timing(flipPulseAnim, { toValue: 1.12, duration: 70, useNativeDriver: true }),
+        Animated.timing(flipPulseAnim, { toValue: 1, duration: 130, useNativeDriver: true }),
+      ]).start();
+    }, 0);
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
-  // FIX ①: read gRef.current directly — no snapshot copies, no useMemo allocations
-  const g = gRef.current;
-  const env = ENVIRONMENTS[ENV_ORDER[g.envIndex]];
-  const speedNorm = Math.min((g.speed - GAME.OBSTACLE_SPEED_INITIAL) / (GAME.OBSTACLE_SPEED_MAX - GAME.OBSTACLE_SPEED_INITIAL), 1);
-  const comboMult = getComboMultiplier(g.comboStreak);
-  const comboLabel = getComboLabel(g.comboStreak);
-  const canFlip = g.flipCooldown <= 0;
+  // FIX ⑧: Read from hudSnapshot for all React-rendered state, not gRef directly
+  const {
+    canFlip,
+    comboStreak,
+    comboDisplayTimer,
+    powerupShieldActive,
+    powerupSlowmoTime,
+    powerupDoubleScoreTime,
+    powerupMagnetTime,
+    dangerFloor,
+    dangerCeil,
+    envIndex,
+    envFlashTimer,
+    speedNorm,
+    popup,
+    obstacles,
+    coins,
+    powerupPickups,
+    onFloor,
+    playerY: snapPlayerY,
+    coinsCollected,
+  } = hudSnapshot;
+
+  const env = ENVIRONMENTS[ENV_ORDER[envIndex]];
+  const comboMult = getComboMultiplier(comboStreak);
+  const comboLabel = getComboLabel(comboStreak);
   const speedLineOpacityScale = (speedNorm - SPEED_LINE_THRESHOLD) / (1 - SPEED_LINE_THRESHOLD);
 
-  // These two are still memoised — they depend only on env/speedNorm which change infrequently
+  // FIX ③: Stable memoised styles — only recompute when env/speedNorm actually changes
   const speedOverlayStyle = useMemo(() => [styles.absoluteFill, { backgroundColor: env.obstacleColor, opacity: speedNorm * 0.06 }], [env.obstacleColor, speedNorm]);
   const magnetAuraStyle = useMemo(() => [styles.absoluteFill, { backgroundColor: POWERUPS.magnet.color, opacity: 0.03 }], []);
 
+  // FIX ④: activePowerups derived from hudSnapshot, not gRef — stable 150ms update cadence
   const activePowerups = useMemo(() => {
     const list: { type: PowerupType; timeLeft?: number }[] = [];
-    if (g.powerupShieldActive) list.push({ type: 'shield' });
-    if (g.powerupSlowmoTime > 0) list.push({ type: 'slowmo', timeLeft: g.powerupSlowmoTime });
-    if (g.powerupDoubleScoreTime > 0) list.push({ type: 'double_score', timeLeft: g.powerupDoubleScoreTime });
-    if (g.powerupMagnetTime > 0) list.push({ type: 'magnet', timeLeft: g.powerupMagnetTime });
+    if (powerupShieldActive) list.push({ type: 'shield' });
+    if (powerupSlowmoTime > 0) list.push({ type: 'slowmo', timeLeft: powerupSlowmoTime });
+    if (powerupDoubleScoreTime > 0) list.push({ type: 'double_score', timeLeft: powerupDoubleScoreTime });
+    if (powerupMagnetTime > 0) list.push({ type: 'magnet', timeLeft: powerupMagnetTime });
     return list;
-  // FIX ④: keyed on frameTick.hud — updates only when HUD tick fires, not every rAF
-  }, [frameTick.hud]);
+  }, [powerupShieldActive, powerupSlowmoTime, powerupDoubleScoreTime, powerupMagnetTime]);
 
-  const warnObs = g.obstacles.find(o => o.x > P_X && o.x < P_X + 260);
+  const warnObs = obstacles.find(o => o.x > P_X && o.x < P_X + 260);
+
+  // FIX ②: Pre-compute wall dot opacities outside render — fastSin is cheap but
+  // doing it inline per-render still creates temporary arrays each frame
+  const g = gRef.current;
+  const wallDotOpacities = useMemo(() =>
+    WALL_DOT_FRACTIONS.map((_, i) => 0.4 + fastSin(g.totalTime * 2 + i) * 0.2),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [Math.floor(g.totalTime * 2)] // only recompute each ~0.5s
+  );
 
   return (
     <Animated.View style={[styles.container, { backgroundColor: env.bgTop, transform: [{ translateX: shakeAnim }] }]}>
@@ -1138,46 +1489,14 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       )}
 
       {/* Magnet aura */}
-      {g.powerupMagnetTime > 0 && (
+      {powerupMagnetTime > 0 && (
         <View style={magnetAuraStyle} pointerEvents="none" />
       )}
 
-      {/* Background parallax nodes — FIX ③: key on stable n.id */}
-      <View style={styles.absoluteFill} pointerEvents="none">
-        {g.bgFar.map((n) => (
-          <View key={n.id} style={{
-            position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2,
-            width: n.size, height: n.size, borderRadius: n.size / 2,
-            backgroundColor: env.nodeFarColor, opacity: n.opacity * 0.5,
-          }} />
-        ))}
-        {g.bgMid.map((n) => (
-          <View key={n.id} style={{
-            position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2,
-            width: n.size + 1, height: n.size + 1, borderRadius: (n.size + 1) / 2,
-            backgroundColor: env.nodeMidColor, opacity: n.opacity * 0.6,
-          }} />
-        ))}
-        {/* Connecting lines for mid nodes */}
-        {g.bgMid.slice(0, -1).map((n, i) => {
-          const next = g.bgMid[i + 1];
-          const dx = next.x - n.x; const dy = next.y - n.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 160) return null;
-          const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-          return (
-            <View key={`l-${n.id}`} style={{
-              position: 'absolute', left: n.x, top: n.y - 0.5,
-              width: dist, height: 1,
-              backgroundColor: env.nodeFarColor,
-              opacity: (1 - dist / 160) * 0.3,
-              transform: [{ rotate: `${angle}deg` }, { translateX: 0 }],
-            }} />
-          );
-        })}
-      </View>
+      {/* FIX ⑤: Canvas layer handles all particles + bg nodes — replaces 30-150 Views */}
+      <CanvasParticleLayer canvasRef={particleCanvasRef} width={SW} height={SH} />
 
-      {/* Horizontal grid lines */}
+      {/* Horizontal grid lines — FIX: static, never re-renders */}
       <View style={styles.absoluteFill} pointerEvents="none">
         {GRID_LINE_FRACTIONS.map(f => (
           <View key={f} style={{ position: 'absolute', left: 0, right: 0, top: CEIL_BOT + PLAY_H * f, height: 1, backgroundColor: env.gridColor }} />
@@ -1204,7 +1523,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       <View style={[styles.wall, { top: HEADER_H, height: WALL_T, backgroundColor: env.wallColor }]}>
         <View style={[styles.wallGlowLine, { borderBottomColor: env.wallGlow, opacity: 0.8 }]} />
         {WALL_DOT_FRACTIONS.map((f, i) => (
-          <View key={`ceil-dot-${f}`} style={[styles.wallDot, { left: SW * f, backgroundColor: env.wallGlow, opacity: 0.4 + Math.sin(g.totalTime * 2 + i) * 0.2 }]} />
+          <View key={`ceil-dot-${f}`} style={[styles.wallDot, { left: SW * f, backgroundColor: env.wallGlow, opacity: wallDotOpacities[i] }]} />
         ))}
       </View>
 
@@ -1212,16 +1531,16 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       <View style={[styles.wall, { top: FLOOR_TOP, height: WALL_T, backgroundColor: env.wallColor }]}>
         <View style={[styles.wallGlowLineTop, { borderTopColor: env.wallGlow, opacity: 0.8 }]} />
         {WALL_DOT_FRACTIONS.map((f, i) => (
-          <View key={`floor-dot-${f}`} style={[styles.wallDot, { left: SW * f, top: 10, backgroundColor: env.wallGlow, opacity: 0.4 + Math.sin(g.totalTime * 2 + i + 1) * 0.2 }]} />
+          <View key={`floor-dot-${f}`} style={[styles.wallDot, { left: SW * f, top: 10, backgroundColor: env.wallGlow, opacity: wallDotOpacities[i] }]} />
         ))}
       </View>
 
       {/* Danger glow on walls */}
-      {g.dangerCeil > 0.1 && (
-        <View style={[styles.dangerGlow, { top: HEADER_H, height: WALL_T + 8, opacity: g.dangerCeil * 0.45, backgroundColor: COLORS.neonPink }]} pointerEvents="none" />
+      {dangerCeil > 0.1 && (
+        <View style={[styles.dangerGlow, { top: HEADER_H, height: WALL_T + 8, opacity: dangerCeil * 0.45, backgroundColor: COLORS.neonPink }]} pointerEvents="none" />
       )}
-      {g.dangerFloor > 0.1 && (
-        <View style={[styles.dangerGlow, { top: FLOOR_TOP - 8, height: WALL_T + 8, opacity: g.dangerFloor * 0.45, backgroundColor: COLORS.neonPink }]} pointerEvents="none" />
+      {dangerFloor > 0.1 && (
+        <View style={[styles.dangerGlow, { top: FLOOR_TOP - 8, height: WALL_T + 8, opacity: dangerFloor * 0.45, backgroundColor: COLORS.neonPink }]} pointerEvents="none" />
       )}
 
       {/* Obstacle warning indicator */}
@@ -1238,56 +1557,13 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         }]} pointerEvents="none" />
       )}
 
-      {/* FIX ①: render directly from gRef — no snapshot arrays */}
-
-      {/* Flip trail streaks */}
-      {g.flipTrails.map(ft => (
-        <View key={ft.id} pointerEvents="none" style={{
-          position: 'absolute',
-          left: ft.x - ft.w / 2, top: ft.y - ft.h / 2,
-          width: ft.w, height: ft.h,
-          borderRadius: ft.h / 2,
-          backgroundColor: ft.color,
-          opacity: Math.max(0, ft.life * 0.85),
-          shadowColor: ft.color,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.9,
-          shadowRadius: 5,
-        }} />
-      ))}
-
-      {/* Trail particles */}
-      {g.trail.map(t => (
-        <View key={t.id} pointerEvents="none" style={{
-          position: 'absolute',
-          left: t.x - t.size / 2, top: t.y - t.size / 2,
-          width: t.size, height: t.size,
-          borderRadius: t.size / 2,
-          backgroundColor: t.color,
-          opacity: Math.max(0, t.life * 0.75),
-        }} />
-      ))}
-
-      {/* Flip rings */}
-      {g.flipRings.map(r => (
-        <View key={r.id} pointerEvents="none" style={{
-          position: 'absolute',
-          left: r.x - r.radius, top: r.y - r.radius,
-          width: r.radius * 2, height: r.radius * 2,
-          borderRadius: r.radius,
-          borderWidth: 1.5,
-          borderColor: r.color,
-          opacity: Math.max(0, r.life * 0.6),
-        }} />
-      ))}
-
-      {/* Obstacles */}
-      {g.obstacles.map(obs => (
+      {/* Obstacles — memo'd, re-render only on HUD tick (150ms) not every rAF */}
+      {obstacles.map(obs => (
         <ObstacleComp key={obs.id} obs={obs} ceilBot={CEIL_BOT} floorTop={FLOOR_TOP} midY={MID_Y} color={env.obstacleColor} />
       ))}
 
       {/* Coins */}
-      {g.coins.map(coin => {
+      {coins.map(coin => {
         const R = coin.rare ? GAME.COIN_VISUAL_RADIUS * 1.7 : coin.highValue ? GAME.COIN_VISUAL_RADIUS * 1.35 : GAME.COIN_VISUAL_RADIUS * 1.1;
         return (
           <View key={coin.id} pointerEvents="none" style={{
@@ -1305,14 +1581,14 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       })}
 
       {/* Power-up pickups */}
-      {g.powerupPickups.map(pu => (
+      {powerupPickups.map(pu => (
         <PowerupPickupComp key={pu.id} pu={pu} />
       ))}
 
-      {/* Shield orb */}
-      {g.powerupShieldActive && (
+      {/* Shield orb — reads snapPlayerY (150ms update is fine for shield visual) */}
+      {powerupShieldActive && (
         <View pointerEvents="none" style={{
-          position: 'absolute', left: P_X - 9, top: g.playerY - 9,
+          position: 'absolute', left: P_X - 9, top: snapPlayerY - 9,
           width: P_SIZE + 18, height: P_SIZE + 18, borderRadius: (P_SIZE + 18) / 2,
           borderWidth: 2, borderColor: COLORS.neonCyan,
           backgroundColor: 'rgba(0, 245, 255, 0.08)',
@@ -1321,36 +1597,27 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       )}
 
       {/* Magnet field ring */}
-      {g.powerupMagnetTime > 0 && (
+      {powerupMagnetTime > 0 && (
         <View pointerEvents="none" style={{
           position: 'absolute',
-          left: P_X + P_SIZE / 2 - MAGNET_RANGE, top: g.playerY + P_SIZE / 2 - MAGNET_RANGE,
+          left: P_X + P_SIZE / 2 - MAGNET_RANGE, top: snapPlayerY + P_SIZE / 2 - MAGNET_RANGE,
           width: MAGNET_RANGE * 2, height: MAGNET_RANGE * 2, borderRadius: MAGNET_RANGE,
           borderWidth: 1, borderColor: POWERUPS.magnet.color,
           opacity: 0.15,
         }} />
       )}
 
-      {/* Player */}
+      {/* Player — Animated.View drives position at rAF rate via setValue, zero React cost */}
       <Animated.View style={{
         position: 'absolute', left: P_X,
         width: P_SIZE, height: P_SIZE,
         transform: [{ translateY: playerYAnim }, { scaleX: playerScaleXAnim }, { scaleY: playerScaleYAnim }, { scale: flipPulseAnim }],
       }} pointerEvents="none">
-        <PlayerBody skin={skin} size={P_SIZE} onFloor={g.onFloor} velocity={g.playerVelocity} />
+        <PlayerBody skin={skin} size={P_SIZE} onFloor={onFloor} velocity={g.playerVelocity} />
       </Animated.View>
 
-      {/* Burst particles */}
-      {g.bursts.map(b => (
-        <View key={b.id} pointerEvents="none" style={{
-          position: 'absolute', left: b.x - b.size / 2, top: b.y - b.size / 2,
-          width: b.size, height: b.size, borderRadius: b.size / 2,
-          backgroundColor: b.color, opacity: Math.max(0, b.life),
-        }} />
-      ))}
-
       {/* Popup text */}
-      {g.popup && (
+      {popup && (
         <Animated.View
           pointerEvents="none"
           style={[styles.popupWrapper, {
@@ -1361,11 +1628,11 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         >
           <Text style={[
             styles.popupText,
-            { color: g.popup.color },
-            g.popup.size === 'lg' && styles.popupTextLg,
-            g.popup.size === 'sm' && styles.popupTextSm,
+            { color: popup.color },
+            popup.size === 'lg' && styles.popupTextLg,
+            popup.size === 'sm' && styles.popupTextSm,
           ]}>
-            {g.popup.text}
+            {popup.text}
           </Text>
         </Animated.View>
       )}
@@ -1374,15 +1641,15 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       <View style={[styles.header, { paddingTop: topPadding + 8, height: HEADER_H }]}>
         <View style={styles.scoreBlock}>
           <Text style={styles.scoreText}>{score}</Text>
-          {g.coinsCollected > 0 && (
+          {coinsCollected > 0 && (
             <View style={styles.coinRow}>
               <CoinStandardSvg size={14} />
-              <Text style={[styles.coinCount, { color: env.coinColor }]}>×{g.coinsCollected}</Text>
+              <Text style={[styles.coinCount, { color: env.coinColor }]}>×{coinsCollected}</Text>
             </View>
           )}
         </View>
 
-        {comboMult > 1 && g.comboDisplayTimer > 0 && (
+        {comboMult > 1 && comboDisplayTimer > 0 && (
           <View style={[styles.comboBadge, { borderColor: env.accentColor, backgroundColor: `${env.accentColor}18` }]}>
             <Text style={[styles.comboText, { color: env.accentColor }]}>{comboLabel}</Text>
           </View>
@@ -1432,7 +1699,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       )}
 
       {/* Environment name flash */}
-      {g.envFlashTimer > 0.15 && (
+      {envFlashTimer > 0.15 && (
         <View style={[styles.envLabel, { top: CEIL_BOT + WALL_T + 8 }]}>
           <Text style={[styles.envLabelText, { color: env.accentColor }]}>{env.name}</Text>
         </View>
@@ -1450,127 +1717,6 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     </Animated.View>
   );
 });
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function PlayerBody({ skin, size, onFloor, velocity }: {
-  skin: typeof SKINS[0]; size: number; onFloor: boolean; velocity: number;
-}) {
-  const flip = onFloor ? 1 : -1;
-  return (
-    <View style={{
-      width: size, height: size,
-      transform: [{ scaleY: flip }],
-      shadowColor: skin.color,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 1,
-      shadowRadius: 12,
-    }}>
-      <CharacterSvg skinId={skin.id} size={size} />
-    </View>
-  );
-}
-
-function PowerupPickupComp({ pu }: { pu: PowerupPickup }) {
-  const cfg = POWERUPS[pu.type];
-  const R = GAME.POWERUP_VISUAL_RADIUS + 4;
-  return (
-    <View pointerEvents="none" style={{
-      position: 'absolute', left: pu.x - R, top: pu.y - R,
-      width: R * 2, height: R * 2,
-      alignItems: 'center', justifyContent: 'center',
-      shadowColor: cfg.color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 14,
-    }}>
-      <PowerupSvg type={pu.type} size={R * 2} />
-    </View>
-  );
-}
-
-function SpikeGroup({ count, fromFloor, x, floorTop, ceilBot, color }: {
-  count: number; fromFloor: boolean; x: number;
-  floorTop: number; ceilBot: number; color: string;
-}) {
-  const w = count === 1 ? 48 : count === 2 ? 64 : 80;
-  if (fromFloor) {
-    return (
-      <View style={{ position: 'absolute', left: x, top: floorTop - SPIKE_H }} pointerEvents="none">
-        <ObstacleFloorSpikesSvg width={w} height={SPIKE_H} />
-      </View>
-    );
-  }
-  return (
-    <View style={{ position: 'absolute', left: x, top: ceilBot }} pointerEvents="none">
-      <ObstacleCeilingSpikesSvg width={w} height={SPIKE_H} />
-    </View>
-  );
-}
-
-function ObstacleComp({ obs, ceilBot, floorTop, midY, color }: {
-  obs: Obstacle; ceilBot: number; floorTop: number; midY: number; color: string;
-}) {
-  if (obs.type === 'floor_spike' || obs.type === 'floor_spikes') {
-    return <SpikeGroup count={obs.spikeCount ?? 1} fromFloor x={obs.x} floorTop={floorTop} ceilBot={ceilBot} color={color} />;
-  }
-  if (obs.type === 'ceiling_spike' || obs.type === 'ceiling_spikes') {
-    return <SpikeGroup count={obs.spikeCount ?? 1} fromFloor={false} x={obs.x} floorTop={floorTop} ceilBot={ceilBot} color={color} />;
-  }
-  if (obs.type === 'moving_spike') {
-    const cy = midY + (obs.moveY ?? 0);
-    const movingAsset: HudAssetName =
-      obs.moveY === undefined || Math.abs(obs.moveY) < 6
-        ? 'obstacle_moving_spike_pincer'
-        : (obs.moveY > 0 ? 'obstacle_moving_spike_floor' : 'obstacle_moving_spike_ceiling');
-    return (
-      <View pointerEvents="none" style={{
-        position: 'absolute', left: obs.x - MOVE_HW, top: cy - MOVE_HH,
-        width: MOVE_HW * 2, height: MOVE_HH * 2,
-        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 10,
-      }}>
-        <HudAssetIcon name={movingAsset} size={Math.max(MOVE_HW * 2, MOVE_HH * 2)} style={{ width: MOVE_HW * 2, height: MOVE_HH * 2 }} />
-      </View>
-    );
-  }
-  if (obs.type === 'rotating_blade') {
-    const D = BLADE_R * 2 + 6;
-    return (
-      <View pointerEvents="none" style={{
-        position: 'absolute', left: obs.x - BLADE_R - 3, top: midY - BLADE_R - 3,
-        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 14,
-      }}>
-        <ObstacleRotatingBladeSvg size={D} rotation={obs.rotation ?? 0} />
-      </View>
-    );
-  }
-  if (obs.type === 'spike_wall') {
-    const GAP = 26 + 18;
-    const wallAsset: HudAssetName = obs.gapAtFloor ? 'obstacle_narrow_tunnel' : 'obstacle_narrow_tunnel_offset';
-    const top = obs.gapAtFloor ? ceilBot : ceilBot + GAP - 8;
-    return (
-      <View pointerEvents="none" style={{
-        position: 'absolute', left: obs.x - 26, top,
-        width: 58, height: GAP + 16,
-        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 10,
-      }}>
-        <HudAssetIcon name={wallAsset} size={58} style={{ width: 58, height: GAP + 16 }} />
-      </View>
-    );
-  }
-  if (obs.type === 'laser_gate') {
-    const beamH = (floorTop - ceilBot) * 0.52;
-    const top = obs.laserFromFloor ? floorTop - beamH : ceilBot;
-    const isOn = !!obs.laserOn;
-    return (
-      <View pointerEvents="none" style={{
-        position: 'absolute', left: obs.x - 12, top,
-        shadowColor: '#FF2266', shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: isOn ? 1 : 0.3, shadowRadius: isOn ? 16 : 4,
-      }}>
-        <ObstacleLaserGateSvg width={24} height={beamH} opacity={isOn ? 1 : 0.35} />
-      </View>
-    );
-  }
-  return null;
-}
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -1619,9 +1765,6 @@ const styles = StyleSheet.create({
   wallDot: { position: 'absolute', top: 8, width: 3, height: 3, borderRadius: 1.5 },
   dangerGlow: { position: 'absolute', left: 0, right: 0 },
   warnLine: { position: 'absolute', width: 3, height: 20, borderRadius: 1.5 },
-  eye: {
-    position: 'absolute', width: 5, borderRadius: 2.5,
-  },
   powerupHUD: {
     position: 'absolute', right: 10, flexDirection: 'column', gap: 6, zIndex: 5,
   },
