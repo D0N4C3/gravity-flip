@@ -272,6 +272,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const lastRenderAtRef = useRef<number>(0);
   const isPausedRef = useRef(isPaused);
   const deadFiredRef = useRef(false);
+  const loopActiveRef = useRef(false);
   const chunkSpawnerRef = useRef(new ChunkSpawner(Date.now()));
 
   const [score, setScore] = useState(0);
@@ -296,17 +297,25 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
   useEffect(() => {
     isPausedRef.current = isPaused;
-    if (!isPaused && gRef.current.phase === 'playing') {
+
+    if (!isPaused && gRef.current.phase === 'playing' && !loopActiveRef.current) {
+      loopActiveRef.current = true;
       lastTimeRef.current = 0;
       rAFRef.current = requestAnimationFrame(gameLoop);
     }
-    return () => { if (rAFRef.current) cancelAnimationFrame(rAFRef.current); };
-  }, [isPaused]);
 
-  useEffect(() => {
-    rAFRef.current = requestAnimationFrame(gameLoop);
-    return () => { if (rAFRef.current) cancelAnimationFrame(rAFRef.current); };
-  }, []);
+    if (isPaused && rAFRef.current) {
+      cancelAnimationFrame(rAFRef.current);
+      rAFRef.current = null;
+      loopActiveRef.current = false;
+    }
+
+    return () => {
+      if (rAFRef.current) cancelAnimationFrame(rAFRef.current);
+      rAFRef.current = null;
+      loopActiveRef.current = false;
+    };
+  }, [isPaused, gameLoop]);
 
   // ─── Revive: resume game from where death happened ────────────────────────
   useImperativeHandle(ref, () => ({
@@ -338,8 +347,11 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       g.deathShake = 0;
       deadFiredRef.current = false;
       isPausedRef.current = false;
-      lastTimeRef.current = 0;
-      rAFRef.current = requestAnimationFrame(gameLoop);
+      if (!loopActiveRef.current) {
+        loopActiveRef.current = true;
+        lastTimeRef.current = 0;
+        rAFRef.current = requestAnimationFrame(gameLoop);
+      }
     },
   }));
 
@@ -354,12 +366,18 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   }
 
   const gameLoop = useCallback((timestamp: number) => {
-    if (isPausedRef.current) return;
+    if (isPausedRef.current) {
+      loopActiveRef.current = false;
+      return;
+    }
     if (lastTimeRef.current === 0) lastTimeRef.current = timestamp;
     const rawDelta = Math.min((timestamp - lastTimeRef.current) / 1000, 0.075);
     lastTimeRef.current = timestamp;
     const g = gRef.current;
-    if (g.phase !== 'playing') return;
+    if (g.phase !== 'playing') {
+      loopActiveRef.current = false;
+      return;
+    }
 
     const inSlowmo = g.powerupSlowmoTime > 0 || g.deathSlowmo > 0;
     const slowFactor = inSlowmo ? (g.deathSlowmo > 0 ? 0.12 : 0.32) : 1;
@@ -938,7 +956,10 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
   function handleTap() {
     const g = gRef.current;
-    if (g.phase !== 'playing') return;
+    if (g.phase !== 'playing') {
+      loopActiveRef.current = false;
+      return;
+    }
     if (g.flipCooldown > 0) return;
 
     gameAudio.playSfx('flip');

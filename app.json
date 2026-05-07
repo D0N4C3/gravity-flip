@@ -29,7 +29,8 @@
         "image": "./assets/images/android-splashscreen.png",
         "resizeMode": "contain",
         "backgroundColor": "#050A14"
-      }
+      },
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
