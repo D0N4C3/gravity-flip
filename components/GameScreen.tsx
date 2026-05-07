@@ -94,6 +94,7 @@ interface FlipRing {
 }
 
 interface BgNode {
+  id: string;
   x: number; y: number; size: number; speed: number; opacity: number;
 }
 
@@ -205,6 +206,7 @@ function rectsClose(a: Rect, b: Rect, t: number) {
 }
 function makeBgNodes(count: number, ceilBot: number, floorTop: number, speedFactor: number): BgNode[] {
   return Array.from({ length: count }, () => ({
+    id: mkId(),
     x: Math.random() * SW * 1.5,
     y: ceilBot + Math.random() * (floorTop - ceilBot),
     size: 1.5 + Math.random() * 2.5,
@@ -265,8 +267,8 @@ const GameCanvas = React.memo(function GameCanvas({
       {speedNorm > 0.1 && <View style={[styles.absoluteFill, { backgroundColor: env.obstacleColor, opacity: speedNorm * 0.06 }]} pointerEvents="none" />}
       {g.powerupMagnetTime > 0 && <View style={[styles.absoluteFill, { backgroundColor: POWERUPS.magnet.color, opacity: 0.03 }]} pointerEvents="none" />}
       <View style={styles.absoluteFill} pointerEvents="none">
-        {g.bgFar.map((n) => <View key={`far-${n.x.toFixed(1)}-${n.y.toFixed(1)}-${n.size.toFixed(1)}`} style={{ position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2, width: n.size, height: n.size, borderRadius: n.size / 2, backgroundColor: env.nodeFarColor, opacity: n.opacity * 0.5 }} />)}
-        {g.bgMid.map((n) => <View key={`mid-${n.x.toFixed(1)}-${n.y.toFixed(1)}-${n.size.toFixed(1)}`} style={{ position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2, width: n.size + 1, height: n.size + 1, borderRadius: (n.size + 1) / 2, backgroundColor: env.nodeMidColor, opacity: n.opacity * 0.6 }} />)}
+        {g.bgFar.map((n) => <View key={n.id} style={{ position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2, width: n.size, height: n.size, borderRadius: n.size / 2, backgroundColor: env.nodeFarColor, opacity: n.opacity * 0.5 }} />)}
+        {g.bgMid.map((n) => <View key={n.id} style={{ position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2, width: n.size + 1, height: n.size + 1, borderRadius: (n.size + 1) / 2, backgroundColor: env.nodeMidColor, opacity: n.opacity * 0.6 }} />)}
         {g.bgMid.slice(0, -1).map((n, i) => { const next = g.bgMid[i + 1]; const dx = next.x - n.x; const dy = next.y - n.y; const dist = Math.sqrt(dx * dx + dy * dy); if (dist > 160) return null; const angle = Math.atan2(dy, dx) * 180 / Math.PI; return <View key={`l${i}`} style={{ position: 'absolute', left: n.x, top: n.y - 0.5, width: dist, height: 1, backgroundColor: env.nodeFarColor, opacity: (1 - dist / 160) * 0.3, transform: [{ rotate: `${angle}deg` }, { translateX: 0 }] }} />; })}
       </View>
       <View style={styles.absoluteFill} pointerEvents="none">{GRID_LINE_FRACTIONS.map(f => <View key={f} style={{ position: 'absolute', left: 0, right: 0, top: CEIL_BOT + PLAY_H * f, height: 1, backgroundColor: env.gridColor }} />)}</View>
