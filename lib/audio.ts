@@ -17,14 +17,31 @@ const MUSIC_INTENSITY_STAGES = [
   { stageSeconds: 75, rate: 1.08, volume: 0.68 },
 ] as const;
 
+// ─── Audio Asset Registry ──────────────────────────────────────────────────────
+// Add your audio files to assets/audio/ and require() them here.
+// All entries are null until you supply real files — the AudioController skips
+// null entries gracefully so the game runs fine without audio assets.
+//
+// Example (once you have the files):
+//   music: require('../assets/audio/music_loop.mp3'),
+//   sfx: {
+//     flip:     require('../assets/audio/sfx_flip.mp3'),
+//     nearMiss: require('../assets/audio/sfx_nearmiss.mp3'),
+//     death:    require('../assets/audio/sfx_death.mp3'),
+//     pickup:   require('../assets/audio/sfx_pickup.mp3'),
+//     uiClick:  require('../assets/audio/sfx_click.mp3'),
+//   }
+//
+// Supported formats: .mp3, .m4a, .wav, .ogg (ogg = Android only)
+// Keep music under 2MB (streamed). SFX should be short <1s clips for low latency.
 const AUDIO_ASSETS = {
   music: null as number | null,
   sfx: {
-    flip: null as number | null,
+    flip:     null as number | null,
     nearMiss: null as number | null,
-    death: null as number | null,
-    pickup: null as number | null,
-    uiClick: null as number | null,
+    death:    null as number | null,
+    pickup:   null as number | null,
+    uiClick:  null as number | null,
   },
 };
 
@@ -36,6 +53,7 @@ class AudioController {
   private musicSound: SoundInstance | null = null;
   private sfxSounds: Partial<Record<SfxType, SoundInstance>> = {};
   private expoAvModule: ExpoAvModule | null = null;
+  private lastMusicStageIndex = -1; // tracks which MUSIC_INTENSITY_STAGES entry is active
 
   private async loadExpoAv() {
     if (this.expoAvModule || !this.available) return this.expoAvModule;
@@ -132,7 +150,14 @@ class AudioController {
   async updateMusicIntensity(survivalSeconds: number) {
     if (!this.musicEnabled || !this.musicSound) return;
 
-    const target = [...MUSIC_INTENSITY_STAGES].reverse().find(s => survivalSeconds >= s.stageSeconds) || MUSIC_INTENSITY_STAGES[0];
+    const stageIndex = [...MUSIC_INTENSITY_STAGES].reduce((best, s, i) =>
+      survivalSeconds >= s.stageSeconds ? i : best, 0);
+
+    // Skip the bridge call entirely if we're already in this stage.
+    if (stageIndex === this.lastMusicStageIndex) return;
+    this.lastMusicStageIndex = stageIndex;
+
+    const target = MUSIC_INTENSITY_STAGES[stageIndex];
     await this.musicSound.setStatusAsync({
       shouldPlay: true,
       volume: target.volume,
