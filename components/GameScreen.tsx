@@ -8,6 +8,14 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import Reanimated, {
+  runOnUI,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -231,19 +239,27 @@ interface GameCanvasProps {
   P_X: number;
   P_SIZE: number;
   skin: typeof SKINS[number];
-  flipPulseAnim: Animated.Value;
-  playerYAnim: Animated.Value;
-  playerScaleXAnim: Animated.Value;
-  playerScaleYAnim: Animated.Value;
+  flipPulseAnim: SharedValue<number>;
+  playerY: SharedValue<number>;
+  playerScaleX: SharedValue<number>;
+  playerScaleY: SharedValue<number>;
   popupAnim: Animated.Value;
   popupScaleAnim: Animated.Value;
 }
 
 const GameCanvas = React.memo(function GameCanvas({
   gRef, env, speedNorm, speedLineOpacityScale, CEIL_BOT, FLOOR_TOP, PLAY_H, MID_Y, P_X, P_SIZE, skin,
-  flipPulseAnim, playerYAnim, playerScaleXAnim, playerScaleYAnim, popupAnim, popupScaleAnim,
+  flipPulseAnim, playerY, playerScaleX, playerScaleY, popupAnim, popupScaleAnim,
 }: GameCanvasProps) {
   const g = gRef.current;
+  const playerAnimStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: playerY.value },
+      { scaleX: playerScaleX.value },
+      { scaleY: playerScaleY.value },
+      { scale: flipPulseAnim.value },
+    ],
+  }));
   return (
     <>
       {speedNorm > 0.1 && <View style={[styles.absoluteFill, { backgroundColor: env.obstacleColor, opacity: speedNorm * 0.06 }]} pointerEvents="none" />}
@@ -263,7 +279,7 @@ const GameCanvas = React.memo(function GameCanvas({
       {g.powerupPickups.map(pu => <PowerupPickupComp key={pu.id} pu={pu} />)}
       {g.powerupShieldActive && <View pointerEvents="none" style={{ position: 'absolute', left: P_X - 9, top: g.playerY - 9, width: P_SIZE + 18, height: P_SIZE + 18, borderRadius: (P_SIZE + 18) / 2, borderWidth: 2, borderColor: COLORS.neonCyan, backgroundColor: 'rgba(0, 245, 255, 0.08)', shadowColor: COLORS.neonCyan, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 12 }} />}
       {g.powerupMagnetTime > 0 && <View pointerEvents="none" style={{ position: 'absolute', left: P_X + P_SIZE / 2 - MAGNET_RANGE, top: g.playerY + P_SIZE / 2 - MAGNET_RANGE, width: MAGNET_RANGE * 2, height: MAGNET_RANGE * 2, borderRadius: MAGNET_RANGE, borderWidth: 1, borderColor: POWERUPS.magnet.color, opacity: 0.15 }} />}
-      <Animated.View style={{ position: 'absolute', left: P_X, width: P_SIZE, height: P_SIZE, transform: [{ translateY: playerYAnim }, { scaleX: playerScaleXAnim }, { scaleY: playerScaleYAnim }, { scale: flipPulseAnim }] }} pointerEvents="none"><PlayerBody skin={skin} size={P_SIZE} onFloor={g.onFloor} velocity={g.playerVelocity} /></Animated.View>
+      <Reanimated.View style={[{ position: 'absolute', left: P_X, width: P_SIZE, height: P_SIZE }, playerAnimStyle]} pointerEvents="none"><PlayerBody skin={skin} size={P_SIZE} onFloor={g.onFloor} velocity={g.playerVelocity} /></Reanimated.View>
       {g.bursts.map(b => <View key={b.id} pointerEvents="none" style={{ position: 'absolute', left: b.x - b.size / 2, top: b.y - b.size / 2, width: b.size, height: b.size, borderRadius: b.size / 2, backgroundColor: b.color, opacity: Math.max(0, b.life) }} />)}
       {g.popup && <Animated.View pointerEvents="none" style={[styles.popupWrapper, { top: MID_Y - 30, opacity: popupAnim, transform: [{ scale: popupScaleAnim }, { translateY: popupAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}><Text style={[styles.popupText, { color: g.popup.color }, g.popup.size === 'lg' && styles.popupTextLg, g.popup.size === 'sm' && styles.popupTextSm]}>{g.popup.text}</Text></Animated.View>}
     </>
@@ -336,14 +352,17 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const [score, setScore] = useState(0);
   const [hudTick, setHudTick] = useState(0);
   const [visualSnapshot, setVisualSnapshot] = useState(0);
-  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const shakeAnim = useSharedValue(0);
   const envFlashAnim = useRef(new Animated.Value(0)).current;
-  const flipPulseAnim = useRef(new Animated.Value(1)).current;
+  const flipPulseAnim = useSharedValue(1);
   const popupAnim = useRef(new Animated.Value(0)).current;
   const popupScaleAnim = useRef(new Animated.Value(0.5)).current;
-  const playerYAnim = useRef(new Animated.Value(P_ON_FLOOR)).current;
-  const playerScaleXAnim = useRef(new Animated.Value(1)).current;
-  const playerScaleYAnim = useRef(new Animated.Value(1)).current;
+  const playerY = useSharedValue(P_ON_FLOOR);
+  const playerScaleX = useSharedValue(1);
+  const playerScaleY = useSharedValue(1);
+  const containerAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: shakeAnim.value }],
+  }));
 
   // Init background nodes after layout
   useEffect(() => {
@@ -773,14 +792,20 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       if (settings.vibration) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       gameAudio.playSfx('death');
       spawnBurst(g, P_X + P_SIZE / 2, g.playerY + P_SIZE / 2, skin.color, 24);
-      Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: 12, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -12, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 8, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -5, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 2, duration: 35, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 35, useNativeDriver: true }),
-      ]).start();
+      runOnUI(() => {
+      'worklet';
+      shakeAnim.value = withTiming(12, { duration: 35 }, () => {
+        shakeAnim.value = withTiming(-12, { duration: 35 }, () => {
+          shakeAnim.value = withTiming(8, { duration: 35 }, () => {
+            shakeAnim.value = withTiming(-5, { duration: 35 }, () => {
+              shakeAnim.value = withTiming(2, { duration: 35 }, () => {
+                shakeAnim.value = withTiming(0, { duration: 35 });
+              });
+            });
+          });
+        });
+      });
+    })();
 
       const finalScore = scoreRef.current;
       const finalCoins = g.coinsCollected;
@@ -810,9 +835,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       }, 850);
     }
 
-    playerYAnim.setValue(g.playerY);
-    playerScaleXAnim.setValue(g.scaleX);
-    playerScaleYAnim.setValue(g.scaleY);
+    runOnUI((nextY: number, nextScaleX: number, nextScaleY: number) => {
+      'worklet';
+      playerY.value = nextY;
+      playerScaleX.value = nextScaleX;
+      playerScaleY.value = nextScaleY;
+    })(g.playerY, g.scaleX, g.scaleY);
 
     if (timestamp - lastRenderAtRef.current >= HUD_UPDATE_INTERVAL_MS) {
       lastRenderAtRef.current = timestamp;
@@ -820,7 +848,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       setHudTick(t => t + 1);
     }
     rAFRef.current = requestAnimationFrame(gameLoop);
-  }, [P_ON_FLOOR, P_ON_CEIL, P_X, P_SIZE, FLOOR_TOP, CEIL_BOT, MID_Y, PLAY_H, settings.vibration, skin, selectedTrailId, recordRunStats, upgrades, playerYAnim, playerScaleXAnim, playerScaleYAnim]);
+  }, [P_ON_FLOOR, P_ON_CEIL, P_X, P_SIZE, FLOOR_TOP, CEIL_BOT, MID_Y, PLAY_H, settings.vibration, skin, selectedTrailId, recordRunStats, upgrades, playerY, playerScaleX, playerScaleY, shakeAnim]);
 
   // ─── Helper functions ───────────────────────────────────────────────────────
 
@@ -1072,10 +1100,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
     if (settings.vibration) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    Animated.sequence([
-      Animated.timing(flipPulseAnim, { toValue: 1.12, duration: 70, useNativeDriver: true }),
-      Animated.timing(flipPulseAnim, { toValue: 1, duration: 130, useNativeDriver: true }),
-    ]).start();
+    runOnUI(() => {
+      'worklet';
+      flipPulseAnim.value = withTiming(1.12, { duration: 70 }, () => {
+        flipPulseAnim.value = withSpring(1, { damping: 12, stiffness: 220 });
+      });
+    })();
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
@@ -1102,7 +1132,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
 
   return (
-    <Animated.View style={[styles.container, { backgroundColor: env.bgTop, transform: [{ translateX: shakeAnim }] }]}>
+    <Reanimated.View style={[styles.container, { backgroundColor: env.bgTop }, containerAnimStyle]}>
       <TouchableOpacity style={styles.absoluteFill} onPress={handleTap} activeOpacity={1} />
 
       {/* Environment transition flash */}
@@ -1125,9 +1155,9 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         P_SIZE={P_SIZE}
         skin={skin}
         flipPulseAnim={flipPulseAnim}
-        playerYAnim={playerYAnim}
-        playerScaleXAnim={playerScaleXAnim}
-        playerScaleYAnim={playerScaleYAnim}
+        playerY={playerY}
+        playerScaleX={playerScaleX}
+        playerScaleY={playerScaleY}
         popupAnim={popupAnim}
         popupScaleAnim={popupScaleAnim}
       />
@@ -1252,7 +1282,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
           </Text>
         </View>
       )}
-    </Animated.View>
+    </Reanimated.View>
   );
 });
 
