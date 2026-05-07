@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useRef, useState, useReducer, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   Text,
@@ -352,8 +352,13 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const chunkSpawnerRef = useRef(new ChunkSpawner(Date.now()));
 
   const [score, setScore] = useState(0);
-  const [hudTick, setHudTick] = useState(0);
-  const [visualSnapshot, setVisualSnapshot] = useState(0);
+  const [{ hud, visual }, bumpRenderTicks] = useReducer(
+    (state: { hud: number; visual: number }, update: { hud?: boolean; visual?: boolean }) => ({
+      hud: update.hud ? state.hud + 1 : state.hud,
+      visual: update.visual ? state.visual + 1 : state.visual,
+    }),
+    { hud: 0, visual: 0 },
+  );
   const shakeAnim = useSharedValue(0);
   const envFlashAnim = useRef(new Animated.Value(0)).current;
   const flipPulseAnim = useSharedValue(1);
@@ -604,7 +609,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       scoreRef.current += gained;
       g.speedFromScore = Math.min(g.speedFromScore + (gained * GAME.SPEED_GAIN_PER_POINT), GAME.OBSTACLE_SPEED_MAX - GAME.OBSTACLE_SPEED_INITIAL);
       setScore(scoreRef.current);
-      setHudTick(t => t + 1);
+      bumpRenderTicks({ hud: true });
       onScoreChange?.(scoreRef.current);
 
       // Milestone popup
@@ -846,8 +851,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
     if (timestamp - lastRenderAtRef.current >= HUD_UPDATE_INTERVAL_MS) {
       lastRenderAtRef.current = timestamp;
-      setVisualSnapshot(t => t + 1);
-      setHudTick(t => t + 1);
+      bumpRenderTicks({ visual: true, hud: true });
     }
     rAFRef.current = requestAnimationFrame(gameLoop);
   }, [P_ON_FLOOR, P_ON_CEIL, P_X, P_SIZE, FLOOR_TOP, CEIL_BOT, MID_Y, PLAY_H, settings.vibration, skin, selectedTrailId, recordRunStats, upgrades, playerY, playerScaleX, playerScaleY, shakeAnim]);
@@ -1127,7 +1131,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     if (g.powerupDoubleScoreTime > 0) list.push({ type: 'double_score', timeLeft: g.powerupDoubleScoreTime });
     if (g.powerupMagnetTime > 0) list.push({ type: 'magnet', timeLeft: g.powerupMagnetTime });
     return list;
-  }, [hudTick]);
+  }, [hud]);
 
   // Find nearest upcoming obstacle for warning
   const warnObs = g.obstacles.find(o => o.x > P_X && o.x < P_X + 260);
@@ -1145,7 +1149,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
       <GameCanvas
         gRef={gRef}
-        tick={visualSnapshot}
+        tick={visual}
         env={env}
         speedNorm={speedNorm}
         speedLineOpacityScale={speedLineOpacityScale}
