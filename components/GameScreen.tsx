@@ -218,6 +218,58 @@ export interface GameScreenRef {
   revive: () => void;
 }
 
+interface GameCanvasProps {
+  gRef: React.RefObject<GState>;
+  tick: number;
+  env: typeof ENVIRONMENTS[keyof typeof ENVIRONMENTS];
+  speedNorm: number;
+  speedLineOpacityScale: number;
+  CEIL_BOT: number;
+  FLOOR_TOP: number;
+  PLAY_H: number;
+  MID_Y: number;
+  P_X: number;
+  P_SIZE: number;
+  skin: typeof SKINS[number];
+  flipPulseAnim: Animated.Value;
+  playerYAnim: Animated.Value;
+  playerScaleXAnim: Animated.Value;
+  playerScaleYAnim: Animated.Value;
+  popupAnim: Animated.Value;
+  popupScaleAnim: Animated.Value;
+}
+
+const GameCanvas = React.memo(function GameCanvas({
+  gRef, env, speedNorm, speedLineOpacityScale, CEIL_BOT, FLOOR_TOP, PLAY_H, MID_Y, P_X, P_SIZE, skin,
+  flipPulseAnim, playerYAnim, playerScaleXAnim, playerScaleYAnim, popupAnim, popupScaleAnim,
+}: GameCanvasProps) {
+  const g = gRef.current;
+  return (
+    <>
+      {speedNorm > 0.1 && <View style={[styles.absoluteFill, { backgroundColor: env.obstacleColor, opacity: speedNorm * 0.06 }]} pointerEvents="none" />}
+      {g.powerupMagnetTime > 0 && <View style={[styles.absoluteFill, { backgroundColor: POWERUPS.magnet.color, opacity: 0.03 }]} pointerEvents="none" />}
+      <View style={styles.absoluteFill} pointerEvents="none">
+        {g.bgFar.map((n) => <View key={`far-${n.x.toFixed(1)}-${n.y.toFixed(1)}-${n.size.toFixed(1)}`} style={{ position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2, width: n.size, height: n.size, borderRadius: n.size / 2, backgroundColor: env.nodeFarColor, opacity: n.opacity * 0.5 }} />)}
+        {g.bgMid.map((n) => <View key={`mid-${n.x.toFixed(1)}-${n.y.toFixed(1)}-${n.size.toFixed(1)}`} style={{ position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2, width: n.size + 1, height: n.size + 1, borderRadius: (n.size + 1) / 2, backgroundColor: env.nodeMidColor, opacity: n.opacity * 0.6 }} />)}
+        {g.bgMid.slice(0, -1).map((n, i) => { const next = g.bgMid[i + 1]; const dx = next.x - n.x; const dy = next.y - n.y; const dist = Math.sqrt(dx * dx + dy * dy); if (dist > 160) return null; const angle = Math.atan2(dy, dx) * 180 / Math.PI; return <View key={`l${i}`} style={{ position: 'absolute', left: n.x, top: n.y - 0.5, width: dist, height: 1, backgroundColor: env.nodeFarColor, opacity: (1 - dist / 160) * 0.3, transform: [{ rotate: `${angle}deg` }, { translateX: 0 }] }} />; })}
+      </View>
+      <View style={styles.absoluteFill} pointerEvents="none">{GRID_LINE_FRACTIONS.map(f => <View key={f} style={{ position: 'absolute', left: 0, right: 0, top: CEIL_BOT + PLAY_H * f, height: 1, backgroundColor: env.gridColor }} />)}</View>
+      {speedNorm > SPEED_LINE_THRESHOLD && <View style={styles.absoluteFill} pointerEvents="none">{SPEED_LINE_FRACTIONS.map((f, i) => <View key={`speed-line-${f}`} style={{ position: 'absolute', left: 0, right: 0, top: CEIL_BOT + PLAY_H * f, height: 1, backgroundColor: env.accentColor, opacity: speedLineOpacityScale * SPEED_LINE_OPACITY_FACTORS[i] }} />)}</View>}
+      {g.flipTrails.map(ft => <View key={ft.id} pointerEvents="none" style={{ position: 'absolute', left: ft.x - ft.w / 2, top: ft.y - ft.h / 2, width: ft.w, height: ft.h, borderRadius: ft.h / 2, backgroundColor: ft.color, opacity: Math.max(0, ft.life * 0.85), shadowColor: ft.color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 5 }} />)}
+      {g.trail.map(t => <View key={t.id} pointerEvents="none" style={{ position: 'absolute', left: t.x - t.size / 2, top: t.y - t.size / 2, width: t.size, height: t.size, borderRadius: t.size / 2, backgroundColor: t.color, opacity: Math.max(0, t.life * 0.75) }} />)}
+      {g.flipRings.map(r => <View key={r.id} pointerEvents="none" style={{ position: 'absolute', left: r.x - r.radius, top: r.y - r.radius, width: r.radius * 2, height: r.radius * 2, borderRadius: r.radius, borderWidth: 1.5, borderColor: r.color, opacity: Math.max(0, r.life * 0.6) }} />)}
+      {g.obstacles.map(obs => <ObstacleComp key={obs.id} obs={obs} ceilBot={CEIL_BOT} floorTop={FLOOR_TOP} midY={MID_Y} color={env.obstacleColor} />)}
+      {g.coins.map(coin => { const R = coin.rare ? GAME.COIN_VISUAL_RADIUS * 1.7 : coin.highValue ? GAME.COIN_VISUAL_RADIUS * 1.35 : GAME.COIN_VISUAL_RADIUS * 1.1; return <View key={coin.id} pointerEvents="none" style={{ position: 'absolute', left: coin.x - R, top: coin.y - R, width: R * 2, height: R * 2 }}>{coin.rare ? <CoinLegendarySvg size={R * 2} /> : coin.highValue ? <CoinRareSvg size={R * 2} /> : <CoinStandardSvg size={R * 2} />}</View>; })}
+      {g.powerupPickups.map(pu => <PowerupPickupComp key={pu.id} pu={pu} />)}
+      {g.powerupShieldActive && <View pointerEvents="none" style={{ position: 'absolute', left: P_X - 9, top: g.playerY - 9, width: P_SIZE + 18, height: P_SIZE + 18, borderRadius: (P_SIZE + 18) / 2, borderWidth: 2, borderColor: COLORS.neonCyan, backgroundColor: 'rgba(0, 245, 255, 0.08)', shadowColor: COLORS.neonCyan, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 12 }} />}
+      {g.powerupMagnetTime > 0 && <View pointerEvents="none" style={{ position: 'absolute', left: P_X + P_SIZE / 2 - MAGNET_RANGE, top: g.playerY + P_SIZE / 2 - MAGNET_RANGE, width: MAGNET_RANGE * 2, height: MAGNET_RANGE * 2, borderRadius: MAGNET_RANGE, borderWidth: 1, borderColor: POWERUPS.magnet.color, opacity: 0.15 }} />}
+      <Animated.View style={{ position: 'absolute', left: P_X, width: P_SIZE, height: P_SIZE, transform: [{ translateY: playerYAnim }, { scaleX: playerScaleXAnim }, { scaleY: playerScaleYAnim }, { scale: flipPulseAnim }] }} pointerEvents="none"><PlayerBody skin={skin} size={P_SIZE} onFloor={g.onFloor} velocity={g.playerVelocity} /></Animated.View>
+      {g.bursts.map(b => <View key={b.id} pointerEvents="none" style={{ position: 'absolute', left: b.x - b.size / 2, top: b.y - b.size / 2, width: b.size, height: b.size, borderRadius: b.size / 2, backgroundColor: b.color, opacity: Math.max(0, b.life) }} />)}
+      {g.popup && <Animated.View pointerEvents="none" style={[styles.popupWrapper, { top: MID_Y - 30, opacity: popupAnim, transform: [{ scale: popupScaleAnim }, { translateY: popupAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}><Text style={[styles.popupText, { color: g.popup.color }, g.popup.size === 'lg' && styles.popupTextLg, g.popup.size === 'sm' && styles.popupTextSm]}>{g.popup.text}</Text></Animated.View>}
+    </>
+  );
+}, (prev, next) => prev.tick === next.tick);
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
@@ -1035,8 +1087,6 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const comboLabel = getComboLabel(g.comboStreak);
   const canFlip = g.flipCooldown <= 0;
   const speedLineOpacityScale = (speedNorm - SPEED_LINE_THRESHOLD) / (1 - SPEED_LINE_THRESHOLD);
-  const speedOverlayStyle = useMemo(() => [styles.absoluteFill, { backgroundColor: env.obstacleColor, opacity: speedNorm * 0.06 }], [env.obstacleColor, speedNorm]);
-  const magnetAuraStyle = useMemo(() => [styles.absoluteFill, { backgroundColor: POWERUPS.magnet.color, opacity: 0.03 }], []);
 
   const activePowerups = useMemo(() => {
     const list: { type: PowerupType; timeLeft?: number }[] = [];
@@ -1050,14 +1100,6 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   // Find nearest upcoming obstacle for warning
   const warnObs = g.obstacles.find(o => o.x > P_X && o.x < P_X + 260);
 
-  const obstacleSnapshot = useMemo(() => g.obstacles.map(o => ({ ...o })), [visualSnapshot]);
-  const trailSnapshot = useMemo(() => g.trail.map(t => ({ ...t })), [visualSnapshot]);
-  const flipTrailSnapshot = useMemo(() => g.flipTrails.map(t => ({ ...t })), [visualSnapshot]);
-  const flipRingSnapshot = useMemo(() => g.flipRings.map(r => ({ ...r })), [visualSnapshot]);
-  const coinSnapshot = useMemo(() => g.coins.map(c => ({ ...c })), [visualSnapshot]);
-  const powerupSnapshot = useMemo(() => g.powerupPickups.map(p => ({ ...p })), [visualSnapshot]);
-  const burstSnapshot = useMemo(() => g.bursts.map(b => ({ ...b })), [visualSnapshot]);
-  const bgSnapshot = useMemo(() => ({ far: g.bgFar.map(n => ({ ...n })), mid: g.bgMid.map(n => ({ ...n })) }), [visualSnapshot]);
 
   return (
     <Animated.View style={[styles.container, { backgroundColor: env.bgTop, transform: [{ translateX: shakeAnim }] }]}>
@@ -1069,76 +1111,26 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         pointerEvents="none"
       />
 
-      {/* Speed overlay */}
-      {speedNorm > 0.1 && (
-        <View
-          style={speedOverlayStyle}
-          pointerEvents="none"
-        />
-      )}
-
-      {/* Magnet aura */}
-      {g.powerupMagnetTime > 0 && (
-        <View style={magnetAuraStyle} pointerEvents="none" />
-      )}
-
-      {/* Background parallax nodes */}
-      <View style={styles.absoluteFill} pointerEvents="none">
-        {bgSnapshot.far.map((n) => (
-          <View key={`far-${n.x.toFixed(1)}-${n.y.toFixed(1)}-${n.size.toFixed(1)}`} style={{
-            position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2,
-            width: n.size, height: n.size, borderRadius: n.size / 2,
-            backgroundColor: env.nodeFarColor, opacity: n.opacity * 0.5,
-          }} />
-        ))}
-        {bgSnapshot.mid.map((n) => (
-          <View key={`mid-${n.x.toFixed(1)}-${n.y.toFixed(1)}-${n.size.toFixed(1)}`} style={{
-            position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2,
-            width: n.size + 1, height: n.size + 1, borderRadius: (n.size + 1) / 2,
-            backgroundColor: env.nodeMidColor, opacity: n.opacity * 0.6,
-          }} />
-        ))}
-        {/* Connecting lines for mid nodes */}
-        {bgSnapshot.mid.slice(0, -1).map((n, i) => {
-          const next = bgSnapshot.mid[i + 1];
-          const dx = next.x - n.x; const dy = next.y - n.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 160) return null;
-          const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-          return (
-            <View key={`l${i}`} style={{
-              position: 'absolute', left: n.x, top: n.y - 0.5,
-              width: dist, height: 1,
-              backgroundColor: env.nodeFarColor,
-              opacity: (1 - dist / 160) * 0.3,
-              transform: [{ rotate: `${angle}deg` }, { translateX: 0 }],
-            }} />
-          );
-        })}
-      </View>
-
-      {/* Horizontal grid lines */}
-      <View style={styles.absoluteFill} pointerEvents="none">
-        {GRID_LINE_FRACTIONS.map(f => (
-          <View key={f} style={{ position: 'absolute', left: 0, right: 0, top: CEIL_BOT + PLAY_H * f, height: 1, backgroundColor: env.gridColor }} />
-        ))}
-      </View>
-
-      {/* Speed lines */}
-      {speedNorm > SPEED_LINE_THRESHOLD && (
-        <View style={styles.absoluteFill} pointerEvents="none">
-          {SPEED_LINE_FRACTIONS.map((f, i) => (
-            <View key={`speed-line-${f}`} style={{
-              position: 'absolute',
-              left: 0, right: 0,
-              top: CEIL_BOT + PLAY_H * f,
-              height: 1,
-              backgroundColor: env.accentColor,
-              opacity: speedLineOpacityScale * SPEED_LINE_OPACITY_FACTORS[i],
-            }} />
-          ))}
-        </View>
-      )}
+      <GameCanvas
+        gRef={gRef}
+        tick={visualSnapshot}
+        env={env}
+        speedNorm={speedNorm}
+        speedLineOpacityScale={speedLineOpacityScale}
+        CEIL_BOT={CEIL_BOT}
+        FLOOR_TOP={FLOOR_TOP}
+        PLAY_H={PLAY_H}
+        MID_Y={MID_Y}
+        P_X={P_X}
+        P_SIZE={P_SIZE}
+        skin={skin}
+        flipPulseAnim={flipPulseAnim}
+        playerYAnim={playerYAnim}
+        playerScaleXAnim={playerScaleXAnim}
+        playerScaleYAnim={playerScaleYAnim}
+        popupAnim={popupAnim}
+        popupScaleAnim={popupScaleAnim}
+      />
 
       {/* Ceiling wall */}
       <View style={[styles.wall, { top: HEADER_H, height: WALL_T, backgroundColor: env.wallColor }]}>
@@ -1179,135 +1171,6 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         }]} pointerEvents="none" />
       )}
 
-      {/* Flip trail streaks (gravity switch burst) */}
-      {flipTrailSnapshot.map(ft => (
-        <View key={ft.id} pointerEvents="none" style={{
-          position: 'absolute',
-          left: ft.x - ft.w / 2, top: ft.y - ft.h / 2,
-          width: ft.w, height: ft.h,
-          borderRadius: ft.h / 2,
-          backgroundColor: ft.color,
-          opacity: Math.max(0, ft.life * 0.85),
-          shadowColor: ft.color,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.9,
-          shadowRadius: 5,
-        }} />
-      ))}
-
-      {/* Trail particles */}
-      {trailSnapshot.map(t => (
-        <View key={t.id} pointerEvents="none" style={{
-          position: 'absolute',
-          left: t.x - t.size / 2, top: t.y - t.size / 2,
-          width: t.size, height: t.size,
-          borderRadius: t.size / 2,
-          backgroundColor: t.color,
-          opacity: Math.max(0, t.life * 0.75),
-        }} />
-      ))}
-
-      {/* Flip rings */}
-      {flipRingSnapshot.map(r => (
-        <View key={r.id} pointerEvents="none" style={{
-          position: 'absolute',
-          left: r.x - r.radius, top: r.y - r.radius,
-          width: r.radius * 2, height: r.radius * 2,
-          borderRadius: r.radius,
-          borderWidth: 1.5,
-          borderColor: r.color,
-          opacity: Math.max(0, r.life * 0.6),
-        }} />
-      ))}
-
-      {/* Obstacles */}
-      {obstacleSnapshot.map(obs => (
-        <ObstacleComp key={obs.id} obs={obs} ceilBot={CEIL_BOT} floorTop={FLOOR_TOP} midY={MID_Y} color={env.obstacleColor} />
-      ))}
-
-      {/* Coins */}
-      {coinSnapshot.map(coin => {
-        const R = coin.rare ? GAME.COIN_VISUAL_RADIUS * 1.7 : coin.highValue ? GAME.COIN_VISUAL_RADIUS * 1.35 : GAME.COIN_VISUAL_RADIUS * 1.1;
-        return (
-          <View key={coin.id} pointerEvents="none" style={{
-            position: 'absolute',
-            left: coin.x - R, top: coin.y - R,
-            width: R * 2, height: R * 2,
-          }}>
-            {coin.rare
-              ? <CoinLegendarySvg size={R * 2} />
-              : coin.highValue
-              ? <CoinRareSvg size={R * 2} />
-              : <CoinStandardSvg size={R * 2} />}
-          </View>
-        );
-      })}
-
-      {/* Power-up pickups */}
-      {powerupSnapshot.map(pu => (
-        <PowerupPickupComp key={pu.id} pu={pu} />
-      ))}
-
-      {/* Shield orb */}
-      {g.powerupShieldActive && (
-        <View pointerEvents="none" style={{
-          position: 'absolute', left: P_X - 9, top: g.playerY - 9,
-          width: P_SIZE + 18, height: P_SIZE + 18, borderRadius: (P_SIZE + 18) / 2,
-          borderWidth: 2, borderColor: COLORS.neonCyan,
-          backgroundColor: 'rgba(0, 245, 255, 0.08)',
-          shadowColor: COLORS.neonCyan, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 12,
-        }} />
-      )}
-
-      {/* Magnet field ring */}
-      {g.powerupMagnetTime > 0 && (
-        <View pointerEvents="none" style={{
-          position: 'absolute',
-          left: P_X + P_SIZE / 2 - MAGNET_RANGE, top: g.playerY + P_SIZE / 2 - MAGNET_RANGE,
-          width: MAGNET_RANGE * 2, height: MAGNET_RANGE * 2, borderRadius: MAGNET_RANGE,
-          borderWidth: 1, borderColor: POWERUPS.magnet.color,
-          opacity: 0.15,
-        }} />
-      )}
-
-      {/* Player */}
-      <Animated.View style={{
-        position: 'absolute', left: P_X,
-        width: P_SIZE, height: P_SIZE,
-        transform: [{ translateY: playerYAnim }, { scaleX: playerScaleXAnim }, { scaleY: playerScaleYAnim }, { scale: flipPulseAnim }],
-      }} pointerEvents="none">
-        <PlayerBody skin={skin} size={P_SIZE} onFloor={g.onFloor} velocity={g.playerVelocity} />
-      </Animated.View>
-
-      {/* Burst particles */}
-      {burstSnapshot.map(b => (
-        <View key={b.id} pointerEvents="none" style={{
-          position: 'absolute', left: b.x - b.size / 2, top: b.y - b.size / 2,
-          width: b.size, height: b.size, borderRadius: b.size / 2,
-          backgroundColor: b.color, opacity: Math.max(0, b.life),
-        }} />
-      ))}
-
-      {/* Popup text */}
-      {g.popup && (
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.popupWrapper, {
-            top: MID_Y - 30,
-            opacity: popupAnim,
-            transform: [{ scale: popupScaleAnim }, { translateY: popupAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
-          }]}
-        >
-          <Text style={[
-            styles.popupText,
-            { color: g.popup.color },
-            g.popup.size === 'lg' && styles.popupTextLg,
-            g.popup.size === 'sm' && styles.popupTextSm,
-          ]}>
-            {g.popup.text}
-          </Text>
-        </Animated.View>
-      )}
 
       {/* Header HUD */}
       <View style={[styles.header, { paddingTop: topPadding + 8, height: HEADER_H }]}>
