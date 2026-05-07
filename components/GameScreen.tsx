@@ -178,11 +178,11 @@ interface LoopSettings {
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const SPIKE_H = 50;
-const SPIKE_W = 20;
-const BLADE_R = 32;
-const MOVE_HH = 26;
-const MOVE_HW = 17;
+const SPIKE_H = 64;
+const SPIKE_W = 26;
+const BLADE_R = 36;
+const MOVE_HH = 30;
+const MOVE_HW = 20;
 const TRAIL_INTERVAL = 0.028;
 const DANGER_DIST = 60;
 const MAGNET_RANGE = 140;
@@ -1022,7 +1022,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   }
 
   function spawnObstacle(totalTime: number, speed: number, L: LayoutConstants, forcedType?: ObstacleType): Obstacle {
-    const id = mkId(); const x = SW + 200;
+    const id = mkId(); const x = SW + 320;
     if (totalTime < 8) {
       return { id, type: Math.random() < 0.5 ? 'floor_spike' : 'ceiling_spike', x, width: SPIKE_W * 2 };
     }
