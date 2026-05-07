@@ -178,11 +178,11 @@ interface LoopSettings {
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const SPIKE_H = 32;
-const SPIKE_W = 13;
-const BLADE_R = 21;
-const MOVE_HH = 17;
-const MOVE_HW = 11;
+const SPIKE_H = 50;
+const SPIKE_W = 20;
+const BLADE_R = 32;
+const MOVE_HH = 26;
+const MOVE_HW = 17;
 const TRAIL_INTERVAL = 0.028;
 const DANGER_DIST = 60;
 const MAGNET_RANGE = 140;
@@ -1022,7 +1022,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   }
 
   function spawnObstacle(totalTime: number, speed: number, L: LayoutConstants, forcedType?: ObstacleType): Obstacle {
-    const id = mkId(); const x = SW + 28;
+    const id = mkId(); const x = SW + 200;
     if (totalTime < 8) {
       return { id, type: Math.random() < 0.5 ? 'floor_spike' : 'ceiling_spike', x, width: SPIKE_W * 2 };
     }
@@ -1034,8 +1034,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
         if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
         if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-        if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
-        if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
+        if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 10, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+        if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 20, gapAtFloor: Math.random() < 0.5 };
       }
       const r = Math.random();
       if (r < 0.35) return { id, type: 'floor_spike', x, width: SPIKE_W * 2 };
@@ -1050,8 +1050,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
         if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
         if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-        if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
-        if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
+        if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 10, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+        if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 20, gapAtFloor: Math.random() < 0.5 };
       }
       const r = Math.random();
       if (r < 0.18) return { id, type: 'floor_spikes', x, width: SPIKE_W * 4 + 4, spikeCount: 2 };
@@ -1068,8 +1068,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
         if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
         if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
         if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-        if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
-        if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
+        if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 10, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+        if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 20, gapAtFloor: Math.random() < 0.5 };
       }
       const r = Math.random();
       if (r < 0.2) return { id, type: 'floor_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
@@ -1085,12 +1085,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       if (forcedType === 'ceiling_spikes') return { id, type: 'ceiling_spikes', x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
       if (forcedType === 'moving_spike') return { id, type: 'moving_spike', x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 90 + Math.random() * 50 };
       if (forcedType === 'rotating_blade') return { id, type: 'rotating_blade', x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
-      if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
-      if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 12, gapAtFloor: Math.random() < 0.5 };
+      if (forcedType === 'laser_gate') return { id, type: 'laser_gate', x: x + 2, width: 10, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+      if (forcedType === 'spike_wall') return { id, type: 'spike_wall', x, width: 20, gapAtFloor: Math.random() < 0.5 };
     }
     const r = Math.random();
-    if (r < 0.12) return { id, type: 'spike_wall' as const, x, width: 10, gapAtFloor: Math.random() < 0.5 };
-    if (r < 0.24) return { id, type: 'laser_gate' as const, x: x + 2, width: 6, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
+    if (r < 0.12) return { id, type: 'spike_wall' as const, x, width: 20, gapAtFloor: Math.random() < 0.5 };
+    if (r < 0.24) return { id, type: 'laser_gate' as const, x: x + 2, width: 10, laserOn: false, laserTimer: 0.6, laserCycleOn: 0.55, laserCycleOff: 0.75, laserFromFloor: Math.random() < 0.5 };
     if (r < 0.40) return { id, type: 'rotating_blade' as const, x: x + BLADE_R, width: BLADE_R * 2, rotation: 0 };
     if (r < 0.56) return { id, type: 'moving_spike' as const, x, width: MOVE_HW * 2, moveY: 0, moveVelocity: 95 + Math.random() * 55 };
     if (r < 0.76) return { id, type: 'floor_spikes' as const, x, width: SPIKE_W * 6 + 8, spikeCount: 3 };
