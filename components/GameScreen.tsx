@@ -178,11 +178,11 @@ interface LoopSettings {
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const SPIKE_H = 50;
-const SPIKE_W = 20;
-const BLADE_R = 32;
-const MOVE_HH = 26;
-const MOVE_HW = 17;
+const SPIKE_H = 64;
+const SPIKE_W = 26;
+const BLADE_R = 36;
+const MOVE_HH = 30;
+const MOVE_HW = 20;
 const TRAIL_INTERVAL = 0.028;
 const DANGER_DIST = 60;
 const MAGNET_RANGE = 140;
@@ -1022,7 +1022,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   }
 
   function spawnObstacle(totalTime: number, speed: number, L: LayoutConstants, forcedType?: ObstacleType): Obstacle {
-    const id = mkId(); const x = SW + 200;
+    const id = mkId(); const x = SW + 320;
     if (totalTime < 8) {
       return { id, type: Math.random() < 0.5 ? 'floor_spike' : 'ceiling_spike', x, width: SPIKE_W * 2 };
     }
@@ -1579,7 +1579,7 @@ const SpikeGroup = React.memo(function SpikeGroup({ count, fromFloor, x, floorTo
   count: number; fromFloor: boolean; x: number;
   floorTop: number; ceilBot: number; color: string;
 }) {
-  const w = count === 1 ? 48 : count === 2 ? 64 : 80;
+  const w = count === 1 ? SPIKE_W * 2 : count === 2 ? SPIKE_W * 4 + 4 : SPIKE_W * 6 + 8;
   if (fromFloor) {
     return (
       <View style={{ position: 'absolute', left: x, top: floorTop - SPIKE_H }} pointerEvents="none">
