@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ViewStyle } from 'react-native';
-import { Image } from 'expo-image';
+import { SvgUri } from 'react-native-svg';
+import { Asset } from 'expo-asset';
 
 const HUD_ASSETS = {
   character_default: require('@/assets/hud/character_default.svg'),
@@ -44,21 +45,8 @@ const HUD_ASSETS = {
 
 export type HudAssetName = keyof typeof HUD_ASSETS;
 
-export default function HudAssetIcon({
-  name,
-  size,
-  style,
-}: {
-  name: HudAssetName;
-  size: number;
-  style?: ViewStyle;
-}) {
-  return (
-    <Image
-      source={HUD_ASSETS[name]}
-      style={[{ width: size, height: size }, style]}
-      contentFit="contain"
-      transition={80}
-    />
-  );
+export default function HudAssetIcon({ name, size, style }: { name: HudAssetName; size: number; style?: ViewStyle }) {
+  const uri = useMemo(() => Asset.fromModule(HUD_ASSETS[name]).uri, [name]);
+
+  return <SvgUri uri={uri} width={size} height={size} style={style} />;
 }
