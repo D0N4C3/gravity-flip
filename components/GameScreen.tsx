@@ -176,7 +176,7 @@ const MAGNET_RANGE = 140;
 const MAGNET_SPEED = 220;
 const MAGNET_PULL_DURATION = 10;
 const SPEED_LINE_THRESHOLD = 0.35;
-const TARGET_RENDER_FPS = 30;
+const HUD_UPDATE_INTERVAL_MS = 125;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -276,12 +276,16 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
   const chunkSpawnerRef = useRef(new ChunkSpawner(Date.now()));
 
   const [score, setScore] = useState(0);
-  const [renderTick, setRenderTick] = useState(0);
+  const [hudTick, setHudTick] = useState(0);
+  const [visualSnapshot, setVisualSnapshot] = useState(0);
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const envFlashAnim = useRef(new Animated.Value(0)).current;
   const flipPulseAnim = useRef(new Animated.Value(1)).current;
   const popupAnim = useRef(new Animated.Value(0)).current;
   const popupScaleAnim = useRef(new Animated.Value(0.5)).current;
+  const playerYAnim = useRef(new Animated.Value(P_ON_FLOOR)).current;
+  const playerScaleXAnim = useRef(new Animated.Value(1)).current;
+  const playerScaleYAnim = useRef(new Animated.Value(1)).current;
 
   // Init background nodes after layout
   useEffect(() => {
@@ -521,6 +525,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       scoreRef.current += gained;
       g.speedFromScore = Math.min(g.speedFromScore + (gained * GAME.SPEED_GAIN_PER_POINT), GAME.OBSTACLE_SPEED_MAX - GAME.OBSTACLE_SPEED_INITIAL);
       setScore(scoreRef.current);
+      setHudTick(t => t + 1);
       onScoreChange?.(scoreRef.current);
 
       // Milestone popup
@@ -747,12 +752,17 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       }, 850);
     }
 
-    if (timestamp - lastRenderAtRef.current >= 1000 / TARGET_RENDER_FPS) {
+    playerYAnim.setValue(g.playerY);
+    playerScaleXAnim.setValue(g.scaleX);
+    playerScaleYAnim.setValue(g.scaleY);
+
+    if (timestamp - lastRenderAtRef.current >= HUD_UPDATE_INTERVAL_MS) {
       lastRenderAtRef.current = timestamp;
-      setRenderTick(t => t + 1);
+      setVisualSnapshot(t => t + 1);
+      setHudTick(t => t + 1);
     }
     rAFRef.current = requestAnimationFrame(gameLoop);
-  }, [P_ON_FLOOR, P_ON_CEIL, P_X, P_SIZE, FLOOR_TOP, CEIL_BOT, MID_Y, PLAY_H, settings.vibration, skin, selectedTrailId, recordRunStats, upgrades]);
+  }, [P_ON_FLOOR, P_ON_CEIL, P_X, P_SIZE, FLOOR_TOP, CEIL_BOT, MID_Y, PLAY_H, settings.vibration, skin, selectedTrailId, recordRunStats, upgrades, playerYAnim, playerScaleXAnim, playerScaleYAnim]);
 
   // ─── Helper functions ───────────────────────────────────────────────────────
 
@@ -1026,10 +1036,19 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
     if (g.powerupDoubleScoreTime > 0) list.push({ type: 'double_score', timeLeft: g.powerupDoubleScoreTime });
     if (g.powerupMagnetTime > 0) list.push({ type: 'magnet', timeLeft: g.powerupMagnetTime });
     return list;
-  }, [renderTick]);
+  }, [hudTick]);
 
   // Find nearest upcoming obstacle for warning
   const warnObs = g.obstacles.find(o => o.x > P_X && o.x < P_X + 260);
+
+  const obstacleSnapshot = useMemo(() => g.obstacles.map(o => ({ ...o })), [visualSnapshot]);
+  const trailSnapshot = useMemo(() => g.trail.map(t => ({ ...t })), [visualSnapshot]);
+  const flipTrailSnapshot = useMemo(() => g.flipTrails.map(t => ({ ...t })), [visualSnapshot]);
+  const flipRingSnapshot = useMemo(() => g.flipRings.map(r => ({ ...r })), [visualSnapshot]);
+  const coinSnapshot = useMemo(() => g.coins.map(c => ({ ...c })), [visualSnapshot]);
+  const powerupSnapshot = useMemo(() => g.powerupPickups.map(p => ({ ...p })), [visualSnapshot]);
+  const burstSnapshot = useMemo(() => g.bursts.map(b => ({ ...b })), [visualSnapshot]);
+  const bgSnapshot = useMemo(() => ({ far: g.bgFar.map(n => ({ ...n })), mid: g.bgMid.map(n => ({ ...n })) }), [visualSnapshot]);
 
   return (
     <Animated.View style={[styles.container, { backgroundColor: env.bgTop, transform: [{ translateX: shakeAnim }] }]}>
@@ -1056,14 +1075,14 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
       {/* Background parallax nodes */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        {g.bgFar.map((n, i) => (
+        {bgSnapshot.far.map((n, i) => (
           <View key={`f${i}`} style={{
             position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2,
             width: n.size, height: n.size, borderRadius: n.size / 2,
             backgroundColor: env.nodeFarColor, opacity: n.opacity * 0.5,
           }} />
         ))}
-        {g.bgMid.map((n, i) => (
+        {bgSnapshot.mid.map((n, i) => (
           <View key={`m${i}`} style={{
             position: 'absolute', left: n.x - n.size / 2, top: n.y - n.size / 2,
             width: n.size + 1, height: n.size + 1, borderRadius: (n.size + 1) / 2,
@@ -1071,8 +1090,8 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
           }} />
         ))}
         {/* Connecting lines for mid nodes */}
-        {g.bgMid.slice(0, -1).map((n, i) => {
-          const next = g.bgMid[i + 1];
+        {bgSnapshot.mid.slice(0, -1).map((n, i) => {
+          const next = bgSnapshot.mid[i + 1];
           const dx = next.x - n.x; const dy = next.y - n.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist > 160) return null;
@@ -1152,7 +1171,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       )}
 
       {/* Flip trail streaks (gravity switch burst) */}
-      {g.flipTrails.map(ft => (
+      {flipTrailSnapshot.map(ft => (
         <View key={ft.id} pointerEvents="none" style={{
           position: 'absolute',
           left: ft.x - ft.w / 2, top: ft.y - ft.h / 2,
@@ -1168,7 +1187,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       ))}
 
       {/* Trail particles */}
-      {g.trail.map(t => (
+      {trailSnapshot.map(t => (
         <View key={t.id} pointerEvents="none" style={{
           position: 'absolute',
           left: t.x - t.size / 2, top: t.y - t.size / 2,
@@ -1180,7 +1199,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       ))}
 
       {/* Flip rings */}
-      {g.flipRings.map(r => (
+      {flipRingSnapshot.map(r => (
         <View key={r.id} pointerEvents="none" style={{
           position: 'absolute',
           left: r.x - r.radius, top: r.y - r.radius,
@@ -1193,12 +1212,12 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       ))}
 
       {/* Obstacles */}
-      {g.obstacles.map(obs => (
+      {obstacleSnapshot.map(obs => (
         <ObstacleComp key={obs.id} obs={obs} ceilBot={CEIL_BOT} floorTop={FLOOR_TOP} midY={MID_Y} color={env.obstacleColor} />
       ))}
 
       {/* Coins */}
-      {g.coins.map(coin => {
+      {coinSnapshot.map(coin => {
         const R = coin.rare ? GAME.COIN_VISUAL_RADIUS * 1.7 : coin.highValue ? GAME.COIN_VISUAL_RADIUS * 1.35 : GAME.COIN_VISUAL_RADIUS * 1.1;
         return (
           <View key={coin.id} pointerEvents="none" style={{
@@ -1216,7 +1235,7 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
       })}
 
       {/* Power-up pickups */}
-      {g.powerupPickups.map(pu => (
+      {powerupSnapshot.map(pu => (
         <PowerupPickupComp key={pu.id} pu={pu} />
       ))}
 
@@ -1244,15 +1263,15 @@ const GameScreen = forwardRef<GameScreenRef, Props>(function GameScreen(
 
       {/* Player */}
       <Animated.View style={{
-        position: 'absolute', left: P_X, top: g.playerY,
+        position: 'absolute', left: P_X,
         width: P_SIZE, height: P_SIZE,
-        transform: [{ scaleX: g.scaleX }, { scaleY: g.scaleY }, { scale: flipPulseAnim }],
+        transform: [{ translateY: playerYAnim }, { scaleX: playerScaleXAnim }, { scaleY: playerScaleYAnim }, { scale: flipPulseAnim }],
       }} pointerEvents="none">
         <PlayerBody skin={skin} size={P_SIZE} onFloor={g.onFloor} velocity={g.playerVelocity} />
       </Animated.View>
 
       {/* Burst particles */}
-      {g.bursts.map(b => (
+      {burstSnapshot.map(b => (
         <View key={b.id} pointerEvents="none" style={{
           position: 'absolute', left: b.x - b.size / 2, top: b.y - b.size / 2,
           width: b.size, height: b.size, borderRadius: b.size / 2,
